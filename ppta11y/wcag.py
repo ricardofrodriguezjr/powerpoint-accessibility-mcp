@@ -1,6 +1,6 @@
 """One deck-wide WCAG audit and the definition of "done".
 
-Covers what a slide deck needs for WCAG 2.1 AA / Section 508:
+Covers these WCAG 2.1 AA / Section 508 criteria (not all of AA; see NOT_CHECKED):
   1.1.1 alt text or decorative on every non-text object (audit.audit)
   1.3.1 / 2.4.6 every slide has a real title; titles unique; tables have a header row and no merged cells
   1.3.2 / 2.4.3 reading order: title first, content in visual order, footers last (or an accepted order)
@@ -16,6 +16,17 @@ import json
 from . import audit as alt_audit
 from . import contrast, links, readingorder, tables, titles
 from .session import out_dir, stamp
+
+# What this audit does not check: reported with every audit so nobody mistakes done=true for a certificate.
+NOT_CHECKED = [
+    "1.2 captions and transcripts for video or audio",
+    "1.4.1 meaning shown only by colour",
+    "1.4.11 contrast of chart lines, arrows and icons",
+    "3.1.1 / 3.1.2 the language of the deck and of passages in another language",
+    "2.2.2 slides or media that advance, move or loop on their own",
+    "2.3.1 flashing content",
+    "whether each alt text is accurate (a person should review it)",
+]
 
 
 def wcag_audit(pres, compare_to: str | None = None, run_checker: bool = True, check_contrast: bool = True) -> dict:
@@ -68,7 +79,7 @@ def wcag_audit(pres, compare_to: str | None = None, run_checker: bool = True, ch
     out = {"deck": pres.FullName, "done": (own_ok and not checker_left) if not skipped else None,
            "skipped": skipped, "remaining": remaining, "caveats": caveats,
            "powerpoint_checker": checker, "powerpoint_checker_open": checker_left, "details": where,
-           "reading_order_report": ro.get("report_files")}
+           "reading_order_report": ro.get("report_files"), "not_checked": NOT_CHECKED}
     if own_ok and set(checker_left) == {"Check reading order"}:
         out["note"] = ("every rule is met; PowerPoint's 'Check reading order' is a heuristic prompt that can stay on "
                        "after a correct fix - review those slides with reading_order_report / reading_order_snapshot")

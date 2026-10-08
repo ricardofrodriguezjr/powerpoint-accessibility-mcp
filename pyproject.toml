@@ -19,7 +19,7 @@ dependencies = [
     "mcp>=2.2,<3",
     "pywin32>=311",
     "openpyxl>=3.1",
-    "pillow>=10",
+    "pillow>=10,<14",
     "pywinauto>=0.6.9",
 ]
 

@@ -40,4 +40,4 @@ send({"jsonrpc": "2.0", "id": 4, "method": "tools/call", "params": {"name": "lis
 print("open decks:", recv()["result"]["content"][0]["text"])
 p.stdin.close()
 p.terminate()
-sys.exit(0 if len(tools) >= 20 else 1)
+sys.exit(0 if len(tools) >= 46 else 1)

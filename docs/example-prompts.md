@@ -27,6 +27,10 @@ in "C:\Users\me\Documents\STAT 101\Lecture 05 alt text.xlsx" exactly as written
 (one row per figure). Put the _accessible copy in the same folder.
 ```
 
+Your spreadsheet should be an Excel file (.xlsx) with column names in row 1 and one row per figure,
+including the slide number and the description. A column named `Alt Text` works best. If your descriptions
+are in a .csv file or a Word table, save them as .xlsx first.
+
 ## Do a whole folder
 
 ```text
@@ -34,6 +38,9 @@ Make every PowerPoint in "C:\Users\me\Documents\STAT 101\Slides" accessible,
 one deck at a time. Skip files that already end in _accessible. Save each
 _accessible copy next to its original and give me one summary table at the end.
 ```
+
+Only .pptx and .pptm files can be processed. For older .ppt files, open them in PowerPoint, choose
+**File > Save As > PowerPoint Presentation (.pptx)**, then run the prompt.
 
 ## Check first, change nothing
 
@@ -45,7 +52,7 @@ Do not change anything yet. List what is missing per slide and what you would fi
 ## Review what changed
 
 ```text
-Open the change log for "C:\Users\me\Documents\STAT 101\Lecture 05_accessible.pptx"
+Open the change log in "C:\Users\me\Documents\STAT 101\Lecture 05_accessible_a11y_checks"
 and list every change I can see on the slides, with before and after values.
 ```
 

@@ -7,11 +7,13 @@
     1. Checks for Windows and desktop PowerPoint.
     2. Installs uv (https://docs.astral.sh/uv/) if it is missing. uv provides a private Python.
     3. Downloads this repository to %USERPROFILE%\.ppt-a11y\app and creates a private Python environment.
+       On an update the previous version is kept until the new one works, and restored if it does not.
     4. For every app found (or the ones named with -Apps): registers the MCP server and copies the skill.
 
-    Run it again at any time to update. Nothing outside %USERPROFILE%\.ppt-a11y, the apps' skill folders
-    and the apps' MCP settings is changed (plus uv itself, if it had to be installed). Existing settings
-    files and skill folders are backed up to %USERPROFILE%\.ppt-a11y\backups before they are changed.
+    Run it again at any time to update (close Claude Code, Codex and OpenCode first). Nothing outside
+    %USERPROFILE%\.ppt-a11y, the apps' skill folders and the apps' MCP settings is changed (plus uv itself, if
+    it had to be installed). Settings files and skill folders are backed up to %USERPROFILE%\.ppt-a11y\backups
+    before they are changed.
 
 .EXAMPLE
     irm https://raw.githubusercontent.com/ricardofrodriguezjr/powerpoint-accessibility-mcp/main/install.ps1 | iex
@@ -31,7 +33,7 @@ param(
     [string]$InstallDir = (Join-Path $env:USERPROFILE '.ppt-a11y'),
     # Branch or tag to download.
     [string]$Ref = 'main',
-    # Use a local folder or .zip instead of downloading (offline installs and testing).
+    # Use a local folder or .zip instead of downloading the code from GitHub.
     [string]$Source = '',
     # Name the server is registered under in each app.
     [string]$ServerName = 'ppt-a11y',
@@ -62,6 +64,18 @@ function Invoke-Native {
     }
 }
 
+function Invoke-Uv {
+    # Networks that inspect secure connections break uv's built-in certificates: retry with the Windows store.
+    param([string]$Uv, [string[]]$UvArgs)
+    $r = Invoke-Native $Uv $UvArgs
+    if ($r.Code -ne 0 -and $r.Output -match 'certificate|UnknownIssuer') {
+        $env:UV_SYSTEM_CERTS = 'true'
+        $env:UV_NATIVE_TLS = 'true'
+        $r = Invoke-Native $Uv $UvArgs
+    }
+    return $r
+}
+
 function Find-Exe([string]$Name) {
     # Programs only (.exe, then .cmd/.bat): npm also installs a .ps1 shim, which a default execution policy
     # blocks, and an extension-less shell script that Windows cannot run.
@@ -82,22 +96,30 @@ function Backup-Item([string]$Path, [string]$Label) {
     return $dest
 }
 
-function Install-Skills([string]$SkillsRoot, [string]$Label) {
-    # Copies every skill folder of the repository into $SkillsRoot, backing up a different existing copy.
-    $src = Join-Path $script:App 'skills'
-    New-Item -ItemType Directory -Force -Path $SkillsRoot | Out-Null
-    foreach ($s in Get-ChildItem -LiteralPath $src -Directory) {
-        if (-not (Test-Path -LiteralPath (Join-Path $s.FullName 'SKILL.md'))) { continue }
-        $dest = Join-Path $SkillsRoot $s.Name
-        if (Test-Path -LiteralPath $dest) {
-            $b = Backup-Item $dest "$Label-skill-$($s.Name)"
-            Remove-Item -LiteralPath $dest -Recurse -Force
-            Write-Note "previous copy of the skill saved to $b"
-        }
-        Copy-Item -LiteralPath $s.FullName -Destination $dest -Recurse -Force
-        Set-Content -LiteralPath (Join-Path $dest '.installed-by-ppt-a11y') -Value $script:App -Encoding ASCII
-        Write-Ok "skill '$($s.Name)' -> $dest"
-    }
+function Write-Utf8([string]$Path, [string]$Text) {
+    [IO.File]::WriteAllText($Path, $Text, (New-Object Text.UTF8Encoding($false)))
+}
+
+function Get-CodexHome {
+    if ($env:CODEX_HOME) { return $env:CODEX_HOME }
+    return (Join-Path $HomeDir '.codex')
+}
+
+function ConvertTo-TomlString([string]$s) {
+    # A literal string keeps Windows backslashes as they are; it cannot hold an apostrophe.
+    if ($s -notmatch "'") { return "'$s'" }
+    return '"' + $s.Replace('\', '\\').Replace('"', '\"') + '"'
+}
+
+function Get-TomlTable([string]$Text, [string]$Name) {
+    # The [mcp_servers.<Name>] table (header line to the next header), or $null. Comments are skipped.
+    $n = [regex]::Escape($Name)
+    $m = [regex]::Match($Text, "(?m)^[ \t]*\[[ \t]*mcp_servers[ \t]*\.[ \t]*(?:$n|`"$n`"|'$n')[ \t]*\][ \t]*(?:#.*)?\r?$")
+    if (-not $m.Success) { return $null }
+    $nm = ([regex]'(?m)^[ \t]*\[').Match($Text, $m.Index + $m.Length)
+    $end = $Text.Length
+    if ($nm.Success) { $end = $nm.Index }
+    return [pscustomobject]@{ Start = $m.Index; HeaderEnd = $m.Index + $m.Length; End = $end; Block = $Text.Substring($m.Index, $end - $m.Index) }
 }
 
 function Get-SkillNames {
@@ -105,9 +127,29 @@ function Get-SkillNames {
     return @(Get-ChildItem -LiteralPath $src -Directory | Where-Object { Test-Path -LiteralPath (Join-Path $_.FullName 'SKILL.md') } | ForEach-Object { $_.Name })
 }
 
+function Install-Skills([string]$SkillsRoot, [string]$Label) {
+    # Copies every skill folder of the repository into $SkillsRoot, backing up an existing copy first.
+    $src = Join-Path $script:App 'skills'
+    New-Item -ItemType Directory -Force -Path $SkillsRoot | Out-Null
+    foreach ($name in Get-SkillNames) {
+        $dest = Join-Path $SkillsRoot $name
+        if (Test-Path -LiteralPath $dest) {
+            $b = Backup-Item $dest "$Label-skill-$name"
+            Remove-Item -LiteralPath $dest -Recurse -Force
+            Write-Note "previous copy of the skill saved to $b"
+        }
+        Copy-Item -LiteralPath (Join-Path $src $name) -Destination $dest -Recurse -Force
+        Set-Content -LiteralPath (Join-Path $dest '.installed-by-ppt-a11y') -Value $script:App -Encoding ASCII
+        Write-Ok "skill '$name' -> $dest"
+    }
+    $script:SkillRootsDone += $SkillsRoot
+}
+
 function Get-Code {
-    # Puts the repository in $InstallDir\app (replacing an older copy).
-    $tmp = Join-Path ([IO.Path]::GetTempPath()) ("ppt-a11y-" + [guid]::NewGuid().ToString('N'))
+    # Puts the new code in $InstallDir\app. An existing version is renamed to app.old-<time> (kept until the
+    # new one works); the download is unpacked inside the install folder so the final move is a rename.
+    New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
+    $tmp = Join-Path $InstallDir ('tmp-' + [guid]::NewGuid().ToString('N'))
     New-Item -ItemType Directory -Force -Path $tmp | Out-Null
     try {
         if ($Source -and (Test-Path -LiteralPath $Source -PathType Container)) {
@@ -134,18 +176,28 @@ function Get-Code {
             Expand-Archive -LiteralPath $zip -DestinationPath (Join-Path $tmp 'x') -Force
             $root = (Get-ChildItem -LiteralPath (Join-Path $tmp 'x') -Directory | Select-Object -First 1).FullName
         }
-        if (-not (Test-Path -LiteralPath (Join-Path $root 'server.py'))) { throw "the download does not contain server.py ($root)" }
+        if (-not $root -or -not (Test-Path -LiteralPath (Join-Path $root 'server.py'))) { throw "the download does not contain server.py" }
+        $script:OldApp = $null
         if (Test-Path -LiteralPath $script:App) {
+            $script:OldApp = "$($script:App).old-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
             try {
-                Remove-Item -LiteralPath $script:App -Recurse -Force -ErrorAction Stop
+                Rename-Item -LiteralPath $script:App -NewName (Split-Path $script:OldApp -Leaf) -ErrorAction Stop
             } catch {
+                $script:OldApp = $null
                 throw "could not replace $($script:App). Close Claude Code, Codex and OpenCode (they keep the server running), then run the installer again."
             }
         }
-        New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
         Move-Item -LiteralPath $root -Destination $script:App
     } finally {
         Remove-Item -LiteralPath $tmp -Recurse -Force -ErrorAction SilentlyContinue
+    }
+}
+
+function Restore-OldApp {
+    if ($script:OldApp -and (Test-Path -LiteralPath $script:OldApp)) {
+        Remove-Item -LiteralPath $script:App -Recurse -Force -ErrorAction SilentlyContinue
+        Rename-Item -LiteralPath $script:OldApp -NewName (Split-Path $script:App -Leaf) -ErrorAction SilentlyContinue
+        Write-Warn2 'the update did not work; the previous version was restored'
     }
 }
 
@@ -166,9 +218,39 @@ function Get-Uv {
     throw 'uv was installed but cannot be found. Open a new PowerShell window and run the installer again.'
 }
 
+function New-PythonEnv([string]$Uv) {
+    # A private Python 3.12 managed by uv first; an installed Python if that fails.
+    $venv = Join-Path $script:App '.venv'
+    $attempts = @(
+        @('--python', '3.12', '--python-preference', 'only-managed'),
+        @('--python', '3.12'),
+        @('--python', '3.13'),
+        @('--python', '3.11'),
+        @('--python', '3.10')
+    )
+    $errors = @()
+    foreach ($a in $attempts) {
+        Remove-Item -LiteralPath $venv -Recurse -Force -ErrorAction SilentlyContinue
+        $r = Invoke-Uv $Uv (@('venv', $venv, '--quiet') + $a)
+        if ($r.Code -eq 0 -and (Test-Path -LiteralPath $script:Py)) { return }
+        $errors += "uv venv $($a -join ' '): $($r.Output)"
+    }
+    throw "creating the Python environment failed:`n$($errors -join "`n")"
+}
+
 function Set-Claude {
     $claude = Find-Exe 'claude'
-    if (-not $claude) { Write-Warn2 'Claude Code (claude) not found on PATH; skipped'; return $false }
+    if (-not $claude) {
+        $p = Join-Path $HomeDir '.local\bin\claude.exe'
+        if (Test-Path -LiteralPath $p) { $claude = $p }
+    }
+    if (-not $claude) {
+        Write-Warn2 'the Claude Code command (claude) was not found; skipped. Using only the desktop app? See docs/manual-setup.md'
+        return $false
+    }
+    $cfgDir = $HomeDir
+    if ($env:CLAUDE_CONFIG_DIR) { $cfgDir = $env:CLAUDE_CONFIG_DIR }
+    Backup-Item (Join-Path $cfgDir '.claude.json') 'claude.json' | Out-Null
     Invoke-Native $claude @('mcp', 'remove', $ServerName, '--scope', 'user') | Out-Null
     $r = Invoke-Native $claude @('mcp', 'add', '--scope', 'user', $ServerName, '--', $script:Py, $script:Server)
     if ($r.Code -ne 0) { Write-Warn2 "claude mcp add failed:`n$($r.Output)"; return $false }
@@ -178,53 +260,66 @@ function Set-Claude {
 }
 
 function Set-Codex {
+    $codexHome = Get-CodexHome
+    $cfg = Join-Path $codexHome 'config.toml'
     $codex = Find-Exe 'codex'
-    if (-not $codex) { Write-Warn2 'Codex (codex) not found on PATH; skipped'; return $false }
-    Invoke-Native $codex @('mcp', 'remove', $ServerName) | Out-Null
-    $r = Invoke-Native $codex @('mcp', 'add', $ServerName, '--', $script:Py, $script:Server)
-    if ($r.Code -ne 0) { Write-Warn2 "codex mcp add failed:`n$($r.Output)"; return $false }
+    if (-not $codex) {
+        $p = Join-Path $env:APPDATA 'npm\codex.cmd'
+        if (Test-Path -LiteralPath $p) { $codex = $p }
+    }
+    if (-not $codex -and -not (Test-Path -LiteralPath $codexHome)) {
+        Write-Warn2 'Codex (command, desktop app or IDE extension) was not found; skipped'
+        return $false
+    }
+    Backup-Item $cfg 'codex-config.toml' | Out-Null
+    if ($codex) {
+        Invoke-Native $codex @('mcp', 'remove', $ServerName) | Out-Null
+        $r = Invoke-Native $codex @('mcp', 'add', $ServerName, '--', $script:Py, $script:Server)
+        if ($r.Code -ne 0) { Write-Warn2 "codex mcp add failed:`n$($r.Output)"; return $false }
+    } else {
+        # The Codex desktop app or IDE extension without the command: write the entry directly.
+        New-Item -ItemType Directory -Force -Path $codexHome | Out-Null
+        $text = ''
+        if (Test-Path -LiteralPath $cfg) { $text = [IO.File]::ReadAllText($cfg) }
+        $t = Get-TomlTable $text $ServerName
+        if ($t) { $text = $text.Remove($t.Start, $t.End - $t.Start) }
+        if ($text -and -not $text.EndsWith("`n")) { $text += "`n" }
+        $text += "`n[mcp_servers.$ServerName]`ncommand = $(ConvertTo-TomlString $script:Py)`nargs = [$(ConvertTo-TomlString $script:Server)]`n"
+        Write-Utf8 $cfg $text
+    }
     Write-Ok "MCP server '$ServerName' registered"
-    Set-CodexOptions
+    Set-CodexOptions $cfg
     # Codex reads user skills from ~/.agents/skills (~/.codex/skills is deprecated).
     if (-not $NoSkill) { Install-Skills (Join-Path $HomeDir '.agents\skills') 'codex' }
     return $true
 }
 
-function Set-CodexOptions {
+function Set-CodexOptions([string]$Cfg) {
     # `codex mcp add` cannot set these, so they are added to the server's table in config.toml:
     # - a longer start-up wait and a 30-minute per-call limit (a full audit or a playback check takes minutes);
-    # - no approval prompt for each call of this server's tools (a deck needs hundreds of calls; the tools
-    #   only ever edit the _accessible copy).
-    $codexHome = Join-Path $HomeDir '.codex'
-    if ($env:CODEX_HOME) { $codexHome = $env:CODEX_HOME }
-    $cfg = Join-Path $codexHome 'config.toml'
-    if (-not (Test-Path -LiteralPath $cfg)) { Write-Warn2 "$cfg not found; options left at their defaults"; return }
-    $text = [IO.File]::ReadAllText($cfg)
-    $header = "[mcp_servers.$ServerName]"
-    if ($text.IndexOf($header) -lt 0) { $header = "[mcp_servers.`"$ServerName`"]" }
-    $i = $text.IndexOf($header)
-    if ($i -lt 0) { Write-Warn2 "could not find $header in $cfg; options left at their defaults"; return }
-    $next = $text.IndexOf("`n[", $i + $header.Length)
-    if ($next -lt 0) { $next = $text.Length }
-    $block = $text.Substring($i, $next - $i)
+    # - no approval prompt for each call of this server's tools (a deck needs hundreds of calls; the editing
+    #   tools only touch the _accessible copy, and the code-running `evaluate` tool is off by default).
+    if (-not (Test-Path -LiteralPath $Cfg)) { Write-Warn2 "$Cfg not found; options left at their defaults"; return }
+    $text = [IO.File]::ReadAllText($Cfg)
+    $t = Get-TomlTable $text $ServerName
+    if (-not $t) { Write-Warn2 "could not find [mcp_servers.$ServerName] in $Cfg; options left at their defaults"; return }
     $add = ''
-    if ($block -notmatch '(?m)^\s*startup_timeout_sec\s*=') { $add += "startup_timeout_sec = 60`n" }
-    if ($block -notmatch '(?m)^\s*tool_timeout_sec\s*=') { $add += "tool_timeout_sec = 1800`n" }
-    if ($block -notmatch '(?m)^\s*default_tools_approval_mode\s*=') { $add += "default_tools_approval_mode = `"approve`"`n" }
+    if ($t.Block -notmatch '(?m)^\s*startup_timeout_sec\s*=') { $add += "startup_timeout_sec = 60`n" }
+    if ($t.Block -notmatch '(?m)^\s*tool_timeout_sec\s*=') { $add += "tool_timeout_sec = 1800`n" }
+    if ($t.Block -notmatch '(?m)^\s*default_tools_approval_mode\s*=') { $add += "default_tools_approval_mode = `"approve`"`n" }
     # Codex waits only 1 s for MCP servers when it builds the first turn's tool list; this server needs
-    # about 2 s to start. A top-level key (it must come before the first [table]).
+    # about 2 s to start. A top-level key, so it goes before the first [table].
     $grace = $text -notmatch '(?m)^\s*mcp_optional_startup_grace_ms\s*='
     if (-not $add -and -not $grace) { return }
-    Backup-Item $cfg 'codex-config.toml' | Out-Null
     if ($add) {
-        $lineEnd = $text.IndexOf("`n", $i)
+        $lineEnd = $text.IndexOf("`n", $t.HeaderEnd)
         if ($lineEnd -lt 0) { $text = $text + "`n" + $add } else { $text = $text.Insert($lineEnd + 1, $add) }
     }
     if ($grace) {
         $text = "mcp_optional_startup_grace_ms = 5000`n" + $text
         $script:CodexGraceAdded = $true
     }
-    [IO.File]::WriteAllText($cfg, $text, (New-Object Text.UTF8Encoding($false)))
+    Write-Utf8 $Cfg $text
     Write-Ok 'set a 30-minute tool time limit, no per-call approval prompts, and a 5 s start-up wait'
 }
 
@@ -272,24 +367,60 @@ function Set-OpenCode {
         $cfg.mcp.PSObject.Properties.Remove($ServerName)
     }
     $cfg.mcp | Add-Member -NotePropertyName $ServerName -NotePropertyValue $entry
-    [IO.File]::WriteAllText($target, ($cfg | ConvertTo-Json -Depth 50), (New-Object Text.UTF8Encoding($false)))
+    Write-Utf8 $target ($cfg | ConvertTo-Json -Depth 50)
     Write-Ok "MCP server '$ServerName' added to $target"
     if (-not $NoSkill) {
-        # OpenCode also reads ~/.claude/skills and ~/.agents/skills: a second copy would only cause a warning.
-        $shared = @()
+        # OpenCode also reads ~/.claude/skills and ~/.agents/skills. Copies this installer made there are
+        # refreshed (unless already done in this run); a missing skill goes to ~/.agents/skills (shared with
+        # Codex, so setting up Codex later adds no second copy).
+        $claudeRoot = Join-Path $HomeDir '.claude\skills'
+        $agentsRoot = Join-Path $HomeDir '.agents\skills'
+        $refresh = @()
+        $missing = $false
         foreach ($name in Get-SkillNames) {
-            foreach ($root in @((Join-Path $HomeDir '.claude\skills'), (Join-Path $HomeDir '.agents\skills'))) {
-                if (Test-Path -LiteralPath (Join-Path (Join-Path $root $name) 'SKILL.md')) { $shared += $name; break }
+            $hit = $false
+            foreach ($root in @($claudeRoot, $agentsRoot)) {
+                $d = Join-Path $root $name
+                if (Test-Path -LiteralPath (Join-Path $d 'SKILL.md')) {
+                    $hit = $true
+                    if ((Test-Path -LiteralPath (Join-Path $d '.installed-by-ppt-a11y')) -and ($refresh -notcontains $root)) { $refresh += $root }
+                }
             }
+            if (-not $hit) { $missing = $true }
         }
-        if ($shared.Count -eq (Get-SkillNames).Count) {
-            Write-Ok 'skill already visible to OpenCode (it also reads ~/.claude/skills and ~/.agents/skills)'
-        } else {
-            # ~/.agents/skills is shared with Codex, so setting up Codex later adds no second copy.
-            Install-Skills (Join-Path $HomeDir '.agents\skills') 'opencode'
-        }
+        if ($missing -and ($refresh -notcontains $agentsRoot)) { $refresh += $agentsRoot }
+        $refresh = @($refresh | Where-Object { $script:SkillRootsDone -notcontains $_ })
+        foreach ($root in $refresh) { Install-Skills $root 'opencode' }
+        if (-not $refresh) { Write-Ok 'skill already visible to OpenCode (it also reads ~/.claude/skills and ~/.agents/skills)' }
     }
     return $true
+}
+
+function Assert-RightAccount {
+    # An administrator window opened with another account would set everything up for that account.
+    $me = [Security.Principal.WindowsIdentity]::GetCurrent()
+    if (-not (New-Object Security.Principal.WindowsPrincipal($me)).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) { return }
+    $console = $null
+    try { $console = (Get-CimInstance Win32_ComputerSystem -ErrorAction Stop).UserName } catch { $console = $null }
+    if ($console -and ($console -ne $me.Name)) {
+        throw "this window runs as $($me.Name), but $console is signed in, so the tool would be set up for the wrong account. Open PowerShell normally (not 'Run as administrator') and run the command again. No administrator rights are needed."
+    }
+}
+
+function Assert-NotInUse {
+    # A running app keeps the old server (python.exe in the install folder) open: replacing it would fail.
+    $prefix = $InstallDir.TrimEnd('\') + '\'
+    $busy = @(Get-Process -ErrorAction SilentlyContinue | Where-Object {
+            $p = $null
+            try { $p = $_.Path } catch { $p = $null }
+            $p -and $p.StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase)
+        })
+    if ($busy.Count -gt 0) {
+        throw 'the tool is in use. Close Claude Code, Codex and OpenCode, including their desktop apps (they keep the server running), then run the installer again.'
+    }
+    foreach ($d in @(Get-ChildItem -LiteralPath $InstallDir -Directory -ErrorAction SilentlyContinue | Where-Object { $_.Name -like 'app.old-*' -or $_.Name -like 'tmp-*' })) {
+        Remove-Item -LiteralPath $d.FullName -Recurse -Force -ErrorAction SilentlyContinue
+    }
 }
 
 function Main {
@@ -298,62 +429,59 @@ function Main {
     Write-Host '  PowerPoint Accessibility MCP installer' -ForegroundColor Cyan
     Write-Host '  https://github.com/ricardofrodriguezjr/powerpoint-accessibility-mcp'
 
-    Write-Step 'Checking this computer'
-    if ([Environment]::OSVersion.Platform -ne 'Win32NT') { throw 'This tool needs Windows: it drives desktop PowerPoint.' }
-    if (-not (Test-Path -LiteralPath 'Registry::HKEY_CLASSES_ROOT\PowerPoint.Application')) {
-        throw 'Desktop PowerPoint was not found. Install Microsoft PowerPoint (Microsoft 365 or Office) and run this again.'
-    }
-    Write-Ok 'Windows and desktop PowerPoint found'
-
+    $script:InstallDir = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($InstallDir)
+    $InstallDir = $script:InstallDir
     $script:App = Join-Path $InstallDir 'app'
     $script:Py = Join-Path $script:App '.venv\Scripts\python.exe'
     $script:Server = Join-Path $script:App 'server.py'
+    $script:SkillRootsDone = @()
+    $script:CodexGraceAdded = $false
+    $script:OldApp = $null
+    # Apps installed after this window was opened are not on its PATH yet.
+    $env:Path = (@($env:Path, [Environment]::GetEnvironmentVariable('Path', 'User'), [Environment]::GetEnvironmentVariable('Path', 'Machine')) | Where-Object { $_ }) -join ';'
+
+    Write-Step 'Checking this computer'
+    if ([Environment]::OSVersion.Platform -ne 'Win32NT') { throw 'This tool needs Windows: it drives desktop PowerPoint.' }
+    if (-not (Test-Path -LiteralPath 'Registry::HKEY_CLASSES_ROOT\PowerPoint.Application')) {
+        throw 'Desktop PowerPoint was not found. Install desktop PowerPoint from Microsoft 365 and run this again.'
+    }
+    Assert-RightAccount
+    Assert-NotInUse
+    Write-Ok 'Windows and desktop PowerPoint found'
 
     Write-Step 'Getting uv (provides a private Python)'
     $uv = Get-Uv
     Write-Ok "uv: $uv"
 
-    Write-Step "Getting the code into $($script:App)"
-    Get-Code
-
-    Write-Step 'Creating the Python environment (first run downloads Python, about 1 minute)'
     # Keep uv's Python and download cache inside the install folder (see -InstallDir).
-    $oldPy = $env:UV_PYTHON_INSTALL_DIR
-    $oldCache = $env:UV_CACHE_DIR
+    $saved = @{}
+    foreach ($k in @('UV_PYTHON_INSTALL_DIR', 'UV_CACHE_DIR', 'UV_SYSTEM_CERTS', 'UV_NATIVE_TLS')) { $saved[$k] = [Environment]::GetEnvironmentVariable($k, 'Process') }
     $env:UV_PYTHON_INSTALL_DIR = Join-Path $InstallDir 'python'
     $env:UV_CACHE_DIR = Join-Path $InstallDir 'cache'
     try {
-        $venv = Join-Path $script:App '.venv'
-        $attempts = @(
-            @('--python', '3.12', '--python-preference', 'only-managed'),
-            @('--python', '3.12'),
-            @('--python', '3.13'),
-            @('--python', '3.11'),
-            @('--python', '3.10')
-        )
-        $made = $false
-        $errors = @()
-        foreach ($a in $attempts) {
-            $r = Invoke-Native $uv (@('venv', $venv, '--quiet', '--clear') + $a)
-            if ($r.Code -eq 0 -and (Test-Path -LiteralPath $script:Py)) { $made = $true; break }
-            $errors += "uv venv $($a -join ' '): $($r.Output)"
-        }
-        if (-not $made) { throw "creating the environment failed:`n$($errors -join "`n")" }
-        $r = Invoke-Native $uv @('pip', 'install', '--python', $script:Py, '--quiet', '-r', (Join-Path $script:App 'requirements.txt'))
+        Write-Step "Getting the code into $($script:App)"
+        Get-Code
+
+        Write-Step 'Creating the Python environment (first run downloads Python, about 1 minute)'
+        New-PythonEnv $uv
+        $r = Invoke-Uv $uv @('pip', 'install', '--python', $script:Py, '--quiet', '-r', (Join-Path $script:App 'requirements.txt'))
         if ($r.Code -ne 0) { throw "installing the Python packages failed:`n$($r.Output)" }
+        $ver = (Invoke-Native $script:Py @('-c', 'import sys; print(sys.version.split()[0])')).Output
+        Write-Ok "packages installed (Python $ver)"
+
+        Write-Step 'Checking the server'
+        $r = Invoke-Native $script:Py @((Join-Path $script:App 'cli.py'), 'list')
+        $tools = @(($r.Output -split "`n") | Where-Object { $_ -match '^[a-z_]+\(' }).Count
+        if ($r.Code -ne 0 -or $tools -lt $MinTools) { throw "the server did not start correctly ($tools tools):`n$($r.Output)" }
+        Write-Ok "server works: $tools tools"
+    } catch {
+        Restore-OldApp
+        throw
     } finally {
-        $env:UV_PYTHON_INSTALL_DIR = $oldPy
-        $env:UV_CACHE_DIR = $oldCache
+        foreach ($k in $saved.Keys) { [Environment]::SetEnvironmentVariable($k, $saved[$k], 'Process') }
         Remove-Item -LiteralPath (Join-Path $InstallDir 'cache') -Recurse -Force -ErrorAction SilentlyContinue
     }
-    $ver = (Invoke-Native $script:Py @('-c', 'import sys; print(sys.version.split()[0])')).Output
-    Write-Ok "packages installed (Python $ver)"
-
-    Write-Step 'Checking the server'
-    $r = Invoke-Native $script:Py @((Join-Path $script:App 'cli.py'), 'list')
-    $tools = @(($r.Output -split "`n") | Where-Object { $_ -match '^[a-z_]+\(' }).Count
-    if ($r.Code -ne 0 -or $tools -lt $MinTools) { throw "the server did not start correctly ($tools tools):`n$($r.Output)" }
-    Write-Ok "server works: $tools tools"
+    if ($script:OldApp) { Remove-Item -LiteralPath $script:OldApp -Recurse -Force -ErrorAction SilentlyContinue }
 
     $want = @($Apps | ForEach-Object { $_ -split ',' } | ForEach-Object { $_.Trim().ToLower() } | Where-Object { $_ })
     $auto = $want -contains 'auto'
@@ -377,7 +505,7 @@ function Main {
         # keep the record of a setting an earlier run added
         try { if ((Get-Content -Raw -LiteralPath $old | ConvertFrom-Json).codex_grace_added) { $record.codex_grace_added = $true } } catch { }
     }
-    [IO.File]::WriteAllText((Join-Path $InstallDir 'install.json'), ($record | ConvertTo-Json), (New-Object Text.UTF8Encoding($false)))
+    Write-Utf8 $old ($record | ConvertTo-Json)
 
     Write-Host ''
     Write-Host '  Done.' -ForegroundColor Green
@@ -389,8 +517,8 @@ function Main {
         Write-Host "    ""$($script:Py)"" ""$($script:Server)"""
         Write-Host '  Then ask, for example:'
     } else {
-        Write-Host '  No app was set up. Install Claude Code, Codex or OpenCode and run this again,'
-        Write-Host '  or see docs/manual-setup.md. The server command is:'
+        Write-Host '  No app was set up. Install the command-line version of Claude Code, Codex or OpenCode and'
+        Write-Host '  run this again, or follow docs/manual-setup.md. The server command is:'
         Write-Host "    ""$($script:Py)"" ""$($script:Server)"""
         Write-Host '  Then ask, for example:'
     }

@@ -70,7 +70,7 @@ Every edit below is its own transaction (checkpoint, change, verify, save or rol
 | `set_reading_order` | `slide, order, strict=false` | Every readable top-level id once. Invisible restack, verified; `deviation` + `not_accepted` if overlaps forced the closest invisible order (re-submit exactly `order_now` to accept it). Otherwise records the order as accepted. |
 | `fix_reading_order` | `slides?, orders?, use_checker=true, hidden_text="decorative"` | Hidden text → decorative; suggested (or given) order per slide; PowerPoint checker loop over variants. `checker.still_flagged` lists what PowerPoint still asks to check. |
 | `wcag_audit` | `compare_to?, run_checker=true, check_contrast=true` | Everything left per category + PowerPoint's counts; `done`. JSON report. |
-| `record_change_log` | `dest, changes=[{Slide, Category, WCAG, What changed, Kind, Before, After, Verified}], sheet_name="WCAG changes"` | Change log as its own sheet of the results copy. Each call **rewrites** that sheet: pass every change at once. Refuses a sheet that is not a change log. |
+| `record_change_log` | `changes=[{Slide, Category, WCAG, What changed, Kind, Before, After, Verified}], dest?, sheet_name="WCAG changes"` | Change log as its own sheet of the results copy (`dest`), or by default a new workbook `<deck>_changes.xlsx` in the deck's checks folder. Returns the path. Each call **rewrites** that sheet: pass every change at once. Refuses a sheet that is not a change log. |
 
 `group_shapes` and `move_to_slides` results now carry a `reading_order_note`: both change the stacking
 order, which is why reading order is fixed last.
@@ -83,7 +83,7 @@ order, which is why reading order is fixed last.
 | `run_accessibility_checker` | `itemize=["Missing alt text"]?` | Uses PowerPoint's Accessibility Assistant through UI Automation. Itemising takes about 1 s per issue and changes the selection only. |
 | `read_alt_text_sheet` | `path, sheet_name?` | Returns rows with an Excel `row` number. |
 | `record_sheet_results` | `source, dest, updates, sheet_name?` | Adds new columns in the copy `dest`. Input columns are protected. |
-| `evaluate` | `code, slide?` | Inspection escape hatch: globals `presentation`, `slide`, `find(container, id)`; set `result`. Saving, closing and opening are blocked, and changes to other open decks are reported. Not a sandbox. |
+| `evaluate` | `code, slide?` | Inspection escape hatch for developers: globals `presentation`, `slide`, `find(container, id)`; set `result`. Saving, closing and opening are blocked, and changes to other open decks are reported. Not a sandbox. Off by default (the server needs `PPT_A11Y_ENABLE_EVALUATE=1`); never needed for remediation. |
 
 ## Plan format (`apply_plan`)
 

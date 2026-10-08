@@ -9,12 +9,14 @@ from __future__ import annotations
 import functools
 import inspect
 import json
+import os
 import sys
 import traceback
 from pathlib import Path
 
 from mcp.server.mcpserver import Image, MCPServer
 
+from . import __version__
 from . import animations as anim
 from . import audit as audit_mod
 from . import checker, inventory, ops, plan, playback, render, session, sheet, structure
@@ -23,6 +25,7 @@ from .com import COM, ToolError, com_err
 
 server = MCPServer(
     name="ppt-a11y",
+    version=__version__,
     instructions=(
         "WCAG 2.1 AA / Section 508 remediation of PowerPoint decks through desktop PowerPoint on Windows: alt "
         "text, slide titles, reading order, text contrast, tables and link text, keeping content, look and "
@@ -32,7 +35,8 @@ server = MCPServer(
         "title_report -> promote_to_title / make_titles_unique; table_report -> table_to_shapes / unmerge_table / "
         "set_table_header; link_report -> set_link_text; contrast_report -> fix_contrast; LAST "
         "reading_order_report + reading_order_snapshot -> fix_reading_order (restacks invisibly, verified). Finish "
-        "with wcag_audit (our rules + PowerPoint's own checker): done=true means nothing is left. Shape ids are "
+        "with wcag_audit (our rules + PowerPoint's own checker): done=true means every check this server covers "
+        "passes; also tell the user its not_checked list (what still needs a person). Shape ids are "
         "PowerPoint Shape.Id values. part='layout'/'master' edits objects inherited from Slide Master view."
     ),
 )
@@ -537,12 +541,17 @@ def read_alt_text_sheet(path: str, sheet_name: str | None = None) -> str:
 
 
 @tool
-def record_change_log(dest: str, changes: list[dict], sheet_name: str = "WCAG changes", replace: bool = True) -> str:
-    """Write a WCAG change log to its own sheet of the results copy `dest` (made by record_sheet_results, or a
-    new workbook): one row per change with Slide, Category, WCAG, What changed, Kind (invisible/visible),
-    Before, After, Verified. The original spreadsheet is never touched. replace=True (default) rewrites the
-    sheet on every call: pass all changes at once (replace=False appends). Only a change-log sheet is ever
-    rewritten."""
+def record_change_log(changes: list[dict], dest: str | None = None, sheet_name: str = "WCAG changes",
+                      replace: bool = True, deck: str | None = None) -> str:
+    """Write a WCAG change log: one row per change with Slide, Category, WCAG, What changed, Kind
+    (invisible/visible), Before, After, Verified. `dest` = the spreadsheet results copy (made by
+    record_sheet_results) when there is one; by default a new workbook '<deck>_changes.xlsx' in the deck's
+    checks folder (next to the audit reports). The original spreadsheet is never touched. replace=True
+    (default) rewrites the sheet on every call: pass all changes at once (replace=False appends). Only a
+    change-log sheet is ever rewritten. Returns the path: tell it to the user."""
+    if not dest:
+        p = session.get_pres(deck)
+        dest = str(session.out_dir(p) / f"{Path(p.FullName).stem}_changes.xlsx")
     return _dump(sheet.record_changes(dest, changes, sheet_name, replace))
 
 
@@ -562,7 +571,11 @@ def evaluate(code: str, slide: int | None = None, deck: str | None = None) -> st
     """Run Python against the deck for inspection the other tools do not cover. Globals: presentation,
     slide (if `slide` given), find(container, id). Set `result` to return data. Only allowed on a working
     copy or a deck opened read-only. This is NOT a sandbox: never save, close or edit other decks from here
-    (use the dedicated tools); the call reports an error if any other open deck was changed."""
+    (use the dedicated tools); the call reports an error if any other open deck was changed. Off unless the
+    server runs with the environment variable PPT_A11Y_ENABLE_EVALUATE=1."""
+    if os.environ.get("PPT_A11Y_ENABLE_EVALUATE") != "1":
+        raise ToolError("evaluate is turned off. It runs code, so it is only for developers: start the server "
+                        "with the environment variable PPT_A11Y_ENABLE_EVALUATE=1 to use it")
     p = session.get_pres(deck)
     if not (session.is_working_copy(p.FullName) or p.ReadOnly):
         raise ToolError("evaluate is only allowed on a working copy or a read-only deck")

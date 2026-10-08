@@ -40,9 +40,10 @@ copy of your deck, while keeping every slide looking and animating exactly as be
 - **Your original is never touched.** The result is saved next to it as `Lecture 05_accessible.pptx`.
 - **Nothing breaks.** Figures keep their animations, slides keep their design. Every invisible change is
   checked against a render of the slide and undone if anything moved.
-- **Only what WCAG requires changes visibly,** such as a text colour nudged to the nearest passing shade or
+- **Only what accessibility rules require changes visibly,** such as a text colour nudged to the nearest passing shade or
   "(2 of 3)" on a repeated title, and every such change is logged with before and after values.
-- **It checks its own work** with a full WCAG audit plus PowerPoint's built-in Accessibility Checker.
+- **It checks its own work** with a WCAG audit of everything it fixes, plus PowerPoint's built-in
+  Accessibility Checker.
 - **Your words are kept.** If you already wrote alt text in a spreadsheet, it is used exactly as written.
 
 ## How it works
@@ -61,7 +62,11 @@ may change, and when the deck is done. More detail: [How it works](docs/how-it-w
 ## Requirements
 
 - Windows 10 or 11
-- Desktop PowerPoint from Microsoft 365 (PowerPoint for the web and for Mac cannot be automated)
+- Desktop PowerPoint from Microsoft 365. PowerPoint for the web and for Mac are not supported, because the
+  tool needs Windows automation. The final check with PowerPoint's own Accessibility Checker needs
+  PowerPoint in English; in other languages the tool's own audit still runs and the report says so.
+- Decks in a regular folder on your computer (for example `C:\Slides`). Decks opened from OneDrive or
+  SharePoint folders may not work; copy them to a local folder first.
 - One AI app that runs on Windows: [Claude Code](https://code.claude.com/docs/en/setup),
   [Codex](https://github.com/openai/codex) or [OpenCode](https://opencode.ai/docs/)
 
@@ -84,7 +89,8 @@ Make "C:\Users\me\Documents\STAT 101\Lecture 05.pptx" WCAG 2.1 AA compliant.
 Save the _accessible copy in the same folder and summarize what you changed.
 ```
 
-That's it. The installer finds Claude Code, Codex and OpenCode on your computer and sets up each one.
+That's it. The installer sets up every app it finds: Claude Code and OpenCode through their commands, and
+Codex through its command or its settings folder. Close those apps before running it.
 
 <details>
 <summary><b>What the installer does</b></summary>
@@ -103,7 +109,7 @@ Run the same command again to update. To set up only some apps:
 ```
 
 Prefer to read the script first? Download [`install.ps1`](install.ps1), then run
-`powershell -ExecutionPolicy Bypass -File .\install.ps1`. To remove everything, use
+`powershell -ExecutionPolicy Bypass -File .\install.ps1`. To remove it, use
 [`uninstall.ps1`](uninstall.ps1) the same way.
 
 </details>
@@ -166,6 +172,20 @@ When the deck is finished, you get:
   before and after values;
 - a summary in the chat, including anything that needs your decision.
 
+## What it does not check
+
+These still need a person:
+
+- captions and transcripts for video or audio in the deck (WCAG 1.2);
+- meaning shown only by colour, such as "the red line is the test error" (1.4.1);
+- contrast of chart lines, arrows and icons (1.4.11);
+- the deck's language setting (3.1.1);
+- slides or media that advance or play on their own (2.2.2);
+- whether each alt text is accurate. The app writes good descriptions, but you know your content best.
+
+This tool fixes the items above and checks its own work. It does not certify compliance and is not legal
+advice. Review the result, especially the alt text, before you share the deck.
+
 ## Set up by app
 
 The Quick start configures these automatically. Expand one to check it or set it up by hand; full steps are
@@ -176,10 +196,13 @@ in [Manual setup](docs/manual-setup.md).
 
 ```powershell
 claude mcp add --scope user ppt-a11y -- "$env:USERPROFILE\.ppt-a11y\app\.venv\Scripts\python.exe" "$env:USERPROFILE\.ppt-a11y\app\server.py"
+New-Item -ItemType Directory -Force "$env:USERPROFILE\.claude\skills" | Out-Null
 Copy-Item -Recurse -Force "$env:USERPROFILE\.ppt-a11y\app\skills\pptx-wcag-alt-text" "$env:USERPROFILE\.claude\skills\"
 ```
 
 Check: start a new session and type `/mcp`. Use the skill by name with `/pptx-wcag-alt-text`, or just ask.
+A deck needs many tool calls: when Claude Code asks to use a PowerPoint tool, answer
+**Yes, and don't ask again** (or add `mcp__ppt-a11y` to the allowed tools with `/permissions`).
 
 </details>
 
@@ -188,6 +211,7 @@ Check: start a new session and type `/mcp`. Use the skill by name with `/pptx-wc
 
 ```powershell
 codex mcp add ppt-a11y '--' "$env:USERPROFILE\.ppt-a11y\app\.venv\Scripts\python.exe" "$env:USERPROFILE\.ppt-a11y\app\server.py"
+New-Item -ItemType Directory -Force "$env:USERPROFILE\.agents\skills" | Out-Null
 Copy-Item -Recurse -Force "$env:USERPROFILE\.ppt-a11y\app\skills\pptx-wcag-alt-text" "$env:USERPROFILE\.agents\skills\"
 ```
 
@@ -234,18 +258,29 @@ is the file you have; OpenCode reads both):
 }
 ```
 
-OpenCode also reads skills from `%USERPROFILE%\.claude\skills` and `%USERPROFILE%\.agents\skills`, so the
-skill is picked up from there. Check: restart OpenCode and run `opencode mcp list`. Run OpenCode directly in
-Windows (PowerShell or Windows Terminal), not inside WSL.
+If the file already has content, keep a single outer `{ }`: add only the `"mcp"` part inside it (or, if it
+already has an `"mcp"` section, only the `"ppt-a11y"` entry), with a comma after the entry before it.
+
+OpenCode also reads skills from `%USERPROFILE%\.claude\skills` and `%USERPROFILE%\.agents\skills`. If you have
+not set up Claude Code or Codex, install the skill with:
+
+```powershell
+New-Item -ItemType Directory -Force "$env:USERPROFILE\.agents\skills" | Out-Null
+Copy-Item -Recurse -Force "$env:USERPROFILE\.ppt-a11y\app\skills\pptx-wcag-alt-text" "$env:USERPROFILE\.agents\skills\"
+```
+
+Check: restart OpenCode and run `opencode mcp list`. Run OpenCode directly in Windows (PowerShell or Windows
+Terminal), not inside WSL.
 
 </details>
 
 <details>
 <summary><b>Other MCP apps</b></summary>
 
-Any app that supports local (stdio) MCP servers can run
-`%USERPROFILE%\.ppt-a11y\app\.venv\Scripts\python.exe %USERPROFILE%\.ppt-a11y\app\server.py`.
-See [Manual setup](docs/manual-setup.md#2-connect-your-app).
+Any app that supports local (stdio) MCP servers works. Use the command
+`C:\Users\YOUR-NAME\.ppt-a11y\app\.venv\Scripts\python.exe` with one argument,
+`C:\Users\YOUR-NAME\.ppt-a11y\app\server.py` (replace YOUR-NAME with your Windows user folder name). See
+[Manual setup](docs/manual-setup.md#2-connect-your-app).
 
 </details>
 
@@ -274,7 +309,7 @@ reading order was checked and is correct (see the [FAQ](#faq)).
 <details>
 <summary><b>Will it change how my slides look?</b></summary>
 
-Only where WCAG requires it, and every such change is listed with before and after values: a text or
+Only where accessibility rules require it, and every such change is listed with before and after values: a text or
 fill colour nudged to the nearest shade that passes contrast, "(2 of 3)" added to repeated titles,
 descriptive link text, and repeated text in unmerged table cells. Everything else (alt text, titles that
 look identical, reading order, grouping) is invisible and is verified to be invisible.
@@ -305,6 +340,16 @@ file you open in that app. Use the app your institution approves for course mate
 
 It needs Windows and desktop PowerPoint, because it drives PowerPoint itself. For Google Slides, download
 the deck as .pptx, make it accessible, and upload the `_accessible` copy.
+
+</details>
+
+<details>
+<summary><b>Which files does it work with?</b></summary>
+
+PowerPoint files in .pptx or .pptm format, in a regular folder on your computer. For an older .ppt file, open
+it in PowerPoint and choose File > Save As > PowerPoint Presentation (.pptx) first. If you have alt text in
+a spreadsheet, save it as an Excel file (.xlsx) with column names in the first row; a column named
+`Alt Text` works best.
 
 </details>
 

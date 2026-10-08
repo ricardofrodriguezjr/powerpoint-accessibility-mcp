@@ -1,6 +1,6 @@
 ---
 name: pptx-wcag-alt-text
-description: Make any PowerPoint deck fully WCAG 2.1 AA / Section 508 compliant and ready to use, by driving desktop PowerPoint on Windows through the ppt-a11y MCP - alt text or "Mark as decorative" on every picture, chart, diagram and shape (grouping multi-piece figures without losing animations), a real and unique title on every slide, correct screen-reader reading order, sufficient text contrast, accessible tables (no merged cells, header rows) and descriptive link text - while keeping the slides' content, look and animations identical except for the few small, logged changes WCAG itself requires. Verifies with its own WCAG audit plus PowerPoint's Accessibility Checker and click-by-click Slide Show playback. Use when asked to make a .pptx accessible or WCAG/Section 508/ADA compliant, add alt text, fix reading order, slide titles, contrast, tables or links, remediate or audit a deck for accessibility, or apply an alt-text spreadsheet to a presentation.
+description: Bring any PowerPoint deck up to the WCAG 2.1 AA / Section 508 checks this MCP covers, ready to use, by driving desktop PowerPoint on Windows through the ppt-a11y MCP - alt text or "Mark as decorative" on every picture, chart, diagram and shape (grouping multi-piece figures without losing animations), a real and unique title on every slide, correct screen-reader reading order, sufficient text contrast, accessible tables (no merged cells, header rows) and descriptive link text - while keeping the slides' content, look and animations identical except for the few small, logged changes WCAG itself requires. Verifies with its own WCAG audit plus PowerPoint's Accessibility Checker and click-by-click Slide Show playback. Use when asked to make a .pptx accessible or WCAG/Section 508/ADA compliant, add alt text, fix reading order, slide titles, contrast, tables or links, remediate or audit a deck for accessibility, or apply an alt-text spreadsheet to a presentation.
 ---
 
 # PowerPoint WCAG remediation: compliant, same content, same look, same animations
@@ -25,6 +25,14 @@ never modified. The goal is a deck a professor can use as-is: nothing left "to d
 If PowerPoint's checker still lists "Check reading order" on a slide whose order you verified (its rule is
 an undocumented heuristic that can stay on after a correct fix), say so explicitly in the report with the
 slide numbers and why the order is right. Everything else must be 0.
+
+If `wcag_audit` returns `done: null` because PowerPoint's checker was skipped (an older Office, or PowerPoint
+in a language other than English, has no Accessibility Assistant the tool can read), finish when every
+`remaining` count is 0, and ask the user to run Review > Check Accessibility once by hand.
+
+`done: true` covers the checks above, not all of WCAG. Every report ends with the audit's `not_checked`
+list (captions for media, colour-only meaning, contrast of chart lines and icons, language, auto-advancing
+slides, flashing content) and asks the user to review the alt text: that still needs a person.
 
 ## 0. Preconditions
 
@@ -149,12 +157,19 @@ colour-blending emphasis effects: look at them. Record every colour change (from
 3. Optional whole-deck render diff (fresh reopen first): only the logged visible changes may differ.
 
 ### Step 9: Record and report
-`record_sheet_results(...)` columns per alt-text row: "Applied (Claude)", "Shape IDs", "Structural change",
-"Question for reviewer", "Alt text note". Then `record_change_log(dest=<same results copy>, changes=[...])`:
-one row per non-alt-text change (titles, tables, links, contrast, reading order, hidden text made
-decorative) with Slide, Category, WCAG criterion, What changed, Kind (invisible / visible), Before, After,
-Verified. Then tell the user in plain words: what was done per category, each visible change
-(before/after), before/after checker numbers, and open questions.
+Always write a change log, with full paths, in the deck's checks folder (the folder of `report_file` from
+`wcag_audit`: `<folder of the _accessible copy>\<copy name without .pptx>_a11y_checks\`).
+- With an alt-text spreadsheet: `record_sheet_results(source=<sheet>, dest=<checks folder>\<sheet name>_results.xlsx,
+  ...)` with columns per alt-text row: "Applied (AI)", "Shape IDs", "Structural change", "Question for
+  reviewer", "Alt text note". Then `record_change_log(changes=[...], dest=<that same results file>)`.
+- Without a spreadsheet: `record_change_log(changes=[...])` (it writes `<copy name>_changes.xlsx` in the checks
+  folder), with one row per alt text written and per object marked decorative as well.
+
+One row per change (titles, tables, links, contrast, reading order, hidden text made decorative, and the
+alt text rows above) with Slide, Category, WCAG criterion, What changed, Kind (invisible / visible), Before,
+After, Verified. Then tell the user in plain words: what was done per category, each visible change
+(before/after), before/after checker numbers, the path of the change log, open questions, and what this
+tool does not check (the audit's `not_checked` list; ask them to review the alt text).
 
 ## 3. Structural fixes (invisible; always noted)
 
@@ -192,6 +207,8 @@ JAWS and Narrator read it. PDF export turns layout/master objects and footers in
 | `promote_to_title` fails | `add_hidden_title` with the heading's text. |
 | `table_to_shapes` fails | Gradient/picture cell fills or an animated table: ask (unmerge or keep). |
 | PowerPoint still flags "Check reading order" | `reading_order_snapshot`; if the order is right, report it as verified (heuristic). |
+| `wcag_audit` `done: null`, PowerPoint checker skipped | Older Office or non-English PowerPoint: finish with every `remaining` count at 0 and ask the user to run Review > Check Accessibility by hand. |
+| "not a registered working copy" or "is not open" for a deck in OneDrive/SharePoint | PowerPoint reports such decks by web address: ask the user to copy the deck to a local folder (e.g. `C:\Slides`) and start again there. |
 | `compare_playback` differs | Look at the image; re-run if an overlay covered the slide; otherwise report it. |
 
 References: `references/tools.md` (all tools, plan format), `references/reading-order.md` (rules and how the

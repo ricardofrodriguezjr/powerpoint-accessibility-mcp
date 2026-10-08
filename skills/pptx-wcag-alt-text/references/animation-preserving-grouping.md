@@ -121,7 +121,7 @@ COM's `Shape.GroupItems` is flat:
 - So an effect that animates the inner group as a whole can't be re-created.
 
 `check_grouping` blocks this case before anything changes.
-- On the test deck this affects slide 17 (groups #24–#27) and slide 58 (#14–#16).
+- On the test deck this affects slide 17 (groups #24 to #27) and slide 58 (#14 to #16).
 - Ask the user: (a) leave those groups out of the new group, (b) carrier, or (c) accept losing the effect.
 
 ## Limits (the XML check catches all of these, and the deck is rolled back)

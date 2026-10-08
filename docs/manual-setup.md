@@ -26,8 +26,15 @@ uv pip install --python .venv\Scripts\python.exe -r requirements.txt
 .venv\Scripts\python.exe cli.py list
 ```
 
-No git? Download the [ZIP](https://github.com/ricardofrodriguezjr/powerpoint-accessibility-mcp/archive/refs/heads/main.zip),
-extract it, and use that folder instead. The last command should print 46 tools.
+No git? Use these lines instead of the `git clone` line, then continue with the `cd` line:
+
+```powershell
+Invoke-WebRequest https://github.com/ricardofrodriguezjr/powerpoint-accessibility-mcp/archive/refs/heads/main.zip -OutFile "$env:TEMP\ppt-a11y.zip"
+Expand-Archive "$env:TEMP\ppt-a11y.zip" "$env:USERPROFILE\.ppt-a11y" -Force
+Rename-Item "$env:USERPROFILE\.ppt-a11y\powerpoint-accessibility-mcp-main" app
+```
+
+The last command of the first block should print 46 tools.
 
 The rest of this page uses these two paths. Adjust them if you put the code somewhere else:
 
@@ -55,7 +62,8 @@ Copy-Item -Recurse -Force "$env:USERPROFILE\.ppt-a11y\app\skills\pptx-wcag-alt-t
 ```
 
 Start a new session and type `/mcp`: **ppt-a11y** should be connected. Type `/pptx-wcag-alt-text` to use the
-skill by name, or just ask.
+skill by name, or just ask. A deck needs many tool calls: answer **Yes, and don't ask again** the first time
+Claude Code asks to use a PowerPoint tool, or add an allow rule for `mcp__ppt-a11y` with `/permissions`.
 
 </details>
 
@@ -70,7 +78,8 @@ codex mcp add ppt-a11y '--' "$env:USERPROFILE\.ppt-a11y\app\.venv\Scripts\python
 
 Then open `%USERPROFILE%\.codex\config.toml`. The command created a `[mcp_servers.ppt-a11y]` section; add
 the last three lines below to it, so that long checks are not cut off and Codex does not ask for approval
-before each of the hundreds of tool calls a deck needs (the tools only ever edit the `_accessible` copy).
+before each of the hundreds of tool calls a deck needs (the editing tools only touch the `_accessible`
+copy; the `evaluate` tool, which can run code, is off unless you enable it).
 Also add `mcp_optional_startup_grace_ms = 5000` as the very first line of the file, so Codex waits for the
 server (about 2 seconds to start) before your first message. The finished file looks like this; single
 quotes keep Windows backslashes as they are. Do not add a second `[mcp_servers.ppt-a11y]` line: TOML does
@@ -109,8 +118,9 @@ name, or just ask. In the Codex desktop app and the VS Code extension, keep the 
 
 Add the server to `%USERPROFILE%\.config\opencode\opencode.json`. OpenCode creates `opencode.jsonc` in that
 folder the first time it runs; if that is the file you have, add the entry there instead (OpenCode reads
-both). If the file already has an `"mcp"` section, add the `"ppt-a11y"` entry inside it. Use double
-backslashes in JSON:
+both). If the file already has content, keep a single outer `{ }` and add only the `"mcp"` part (or, if it
+already has an `"mcp"` section, only the `"ppt-a11y"` entry), with a comma after the entry before it. Use
+double backslashes in JSON:
 
 ```json
 {
@@ -168,7 +178,8 @@ _accessible copy in the same folder.
 
 ## Updating
 
-Run the installer again, or pull the latest code and reinstall the packages:
+Close your apps first. If you used the installer or the ZIP, run the one-line installer again. If you used
+`git clone`:
 
 ```powershell
 cd "$env:USERPROFILE\.ppt-a11y\app"

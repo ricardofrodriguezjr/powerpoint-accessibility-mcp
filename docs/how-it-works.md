@@ -24,7 +24,7 @@ PowerPoint file, and anything the tool does not touch stays exactly as it was.
 - **Invisible changes are proven invisible.** Structural edits (grouping, restacking for reading order,
   converting a layout table to text boxes) are verified with a before and after render of the slide,
   shape positions, and the slide's saved animation XML.
-- **Visible changes are limited and logged.** Only what WCAG itself requires is allowed to change visibly:
+- **Visible changes are limited and logged.** Only what accessibility rules require is allowed to change visibly:
   a text or fill colour nudged to the nearest passing colour, "(2 of 3)" on repeated titles, link text,
   and repeated text in unmerged table cells. Each one is listed with before and after values.
 - **Spreadsheets are never edited in place.** Results go to a copy of your alt-text spreadsheet.
@@ -42,7 +42,7 @@ PowerPoint file, and anything the tool does not touch stays exactly as it was.
 | 2.4.4 | Raw or broken link text | Replaces it with a description of the destination and keeps the link working. |
 
 When it is done, `wcag_audit` runs every rule again plus PowerPoint's own Accessibility Checker and reports
-`done: true` only when nothing is left.
+`done: true` only when every check it covers passes. Every audit also lists what it does not check.
 
 ## Keeping animations when grouping
 
@@ -114,3 +114,11 @@ it changes the slide less.
   untested. In both cases the check fails and the deck is rolled back, so nothing is lost.
 - Colours stored inside animations (Dim after animation, colour emphasis) are measured and reported, but
   must be changed by hand in the Animation Pane.
+- PowerPoint's own Accessibility Checker is read through its English interface (the Microsoft 365
+  Accessibility Assistant). With another display language or an older Office, that one check is skipped
+  and the report says so.
+- Decks opened from OneDrive or SharePoint folders are reported by PowerPoint with a web address, which
+  the tool cannot match to the file: work on decks in a local folder.
+- Not checked at all: captions and transcripts for media (1.2), meaning shown only by colour (1.4.1),
+  contrast of chart lines, arrows and icons (1.4.11), document language (3.1.1), auto-advancing slides
+  (2.2.2), flashing content (2.3.1), and whether the alt text is accurate. These need a person.

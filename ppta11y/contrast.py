@@ -277,6 +277,12 @@ def _blend(tf, bg) -> tuple:
     return tuple(rgb)
 
 
+def _pixels(im) -> list:
+    """Pixel values in row order (Image.getdata is deprecated in newer Pillow)."""
+    get = getattr(im, "get_flattened_data", None)
+    return list(get() if get else im.getdata())
+
+
 def _sample_bg(img, box_pt, scale, text_rgb, share: float = 0.08, need_glyphs: bool = False) -> list:
     """The background colours actually rendered right next to the letters (WCAG G18: the area immediately
     around each glyph, sampled just outside the antialiased edge): every cluster of such pixels holding at
@@ -289,7 +295,7 @@ def _sample_bg(img, box_pt, scale, text_rgb, share: float = 0.08, need_glyphs: b
     if x1 <= x0 or y1 <= y0:
         return []
     crop = img.crop((x0, y0, x1, y1))
-    px = list(crop.getdata())
+    px = _pixels(crop)
     tr = text_rgb or (0, 0, 0)
     is_text = [sum(abs(a - b) for a, b in zip(p, tr)) <= 90 for p in px]
     pool, fallback = [], False
@@ -298,8 +304,8 @@ def _sample_bg(img, box_pt, scale, text_rgb, share: float = 0.08, need_glyphs: b
         mask.putdata([255 if t else 0 for t in is_text])
         # a ring 3-4 px (at 2x) around the letters: close enough to be what the letters are seen against,
         # outside the 1-2 px band of antialiased edge pixels (blends of text and background colour)
-        outer = list(mask.filter(ImageFilter.MaxFilter(9)).getdata())
-        inner = list(mask.filter(ImageFilter.MaxFilter(5)).getdata())
+        outer = _pixels(mask.filter(ImageFilter.MaxFilter(9)))
+        inner = _pixels(mask.filter(ImageFilter.MaxFilter(5)))
         pool = [p for p, o, i in zip(px, outer, inner) if o and not i]
     if len(pool) < 20:
         if need_glyphs:  # the letters cannot be seen here (e.g. under a cover): nothing to measure

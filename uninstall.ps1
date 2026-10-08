@@ -54,6 +54,8 @@ function Main {
     $ErrorActionPreference = 'Stop'
     Write-Host ''
     Write-Host '  PowerPoint Accessibility MCP uninstaller' -ForegroundColor Cyan
+    $InstallDir = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($InstallDir)
+    $env:Path = (@($env:Path, [Environment]::GetEnvironmentVariable('Path', 'User'), [Environment]::GetEnvironmentVariable('Path', 'Machine')) | Where-Object { $_ }) -join ';'
 
     $claude = Find-Exe 'claude'
     if ($claude) {
@@ -99,11 +101,25 @@ function Main {
     }
 
     if (-not $KeepFiles -and (Test-Path -LiteralPath $InstallDir)) {
-        try {
-            Remove-Item -LiteralPath $InstallDir -Recurse -Force -ErrorAction Stop
-            Write-Ok "removed $InstallDir"
-        } catch {
-            Write-Note "could not remove $InstallDir (is an app still running the server?). Close the apps and delete the folder."
+        if (-not (Test-Path -LiteralPath (Join-Path $InstallDir 'install.json')) -and -not (Test-Path -LiteralPath (Join-Path $InstallDir 'app\server.py'))) {
+            Write-Note "$InstallDir does not look like this tool's install folder; it was left as it is."
+        } else {
+            # Only what the installer creates is removed (the backups included; use -KeepFiles to keep them).
+            $names = @('app', 'python', 'cache', 'backups', 'install.json') + @(Get-ChildItem -LiteralPath $InstallDir -Directory -Force |
+                    Where-Object { $_.Name -like 'app.old-*' -or $_.Name -like 'tmp-*' } | ForEach-Object { $_.Name })
+            $failed = $false
+            foreach ($n in $names) {
+                $p = Join-Path $InstallDir $n
+                if (Test-Path -LiteralPath $p) {
+                    try { Remove-Item -LiteralPath $p -Recurse -Force -ErrorAction Stop } catch { $failed = $true }
+                }
+            }
+            if (-not @(Get-ChildItem -LiteralPath $InstallDir -Force)) { Remove-Item -LiteralPath $InstallDir -Force }
+            if ($failed) {
+                Write-Note "could not remove everything in $InstallDir (is an app still running the server?). Close the apps and run this again."
+            } else {
+                Write-Ok "removed the tool's files from $InstallDir"
+            }
         }
     }
     Write-Host ''

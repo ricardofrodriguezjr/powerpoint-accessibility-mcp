@@ -45,7 +45,7 @@ Other categories it reports, which are outside SC 1.1.1 and should be reported t
 
 ## Writing guidance
 
-- Microsoft recommends 1–2 sentences. There is no hard length limit, but over ~250–300 characters
+- Microsoft recommends 1 or 2 sentences. There is no hard length limit, but over about 250 to 300 characters
   consider moving detail to the notes.
   https://support.microsoft.com/en-us/office/everything-you-need-to-know-to-write-effective-alt-text-df98f884-ca3d-456c-807b-1a1fa82f5dc2
 - Don't start with "image of" or "picture of". The screen reader already announces "graphic" or "group".

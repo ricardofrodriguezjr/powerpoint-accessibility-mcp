@@ -24,7 +24,9 @@ Measured behaviour is from PowerPoint for Microsoft 365, build 16.0.20430 (Octob
 
 - Missing table header fires exactly when Header Row (`Table.FirstRow`) is off.
 - PowerPoint's merged-cell warning fires only on tables of at least 4x4 with a merge outside row 1 /
-  column 1 (measured). Section 508 fails **any** merged or split cell: our `table_report` finds them all.
+  column 1 (measured). The HHS PowerPoint 508 checklist fails **any** merged or split cell, and
+  Section508.gov's authoring guidance says to avoid them (WCAG 1.3.1 itself does not ban them as such):
+  our `table_report` finds them all.
 - PowerPoint cannot express scope/headers, so a table whose meaning depends on spanning cells cannot meet
   1.3.1 as a table. Layout/diagram tables (a tree drawn with merged cells) should not be tables at all
   (Microsoft, Texas HHS, ICT baseline 12.C) → `table_to_shapes` (same look, real text, read branch by

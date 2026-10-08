@@ -11,22 +11,43 @@ powershell -ExecutionPolicy Bypass -File .\install.ps1
 ```
 
 **"Desktop PowerPoint was not found"**
-The tool drives the PowerPoint app installed on your computer. Install Microsoft PowerPoint (Microsoft 365
-or Office) and run the installer again. PowerPoint on the web and PowerPoint for Mac cannot be automated.
+The tool drives the PowerPoint app installed on your computer. Install desktop PowerPoint from Microsoft 365
+and run the installer again. PowerPoint on the web and PowerPoint for Mac are not supported.
 
-**"could not replace ... Close Claude Code, Codex and OpenCode"**
-An open app keeps the server running from the install folder. Quit every app that uses it (including the
-desktop apps), then run the installer again.
+**"the tool is in use" or "could not replace ..."**
+An open app keeps the server running from the install folder. Quit Claude Code, Codex and OpenCode
+(including their desktop apps and editor extensions), then run the installer again. If an update fails
+halfway, the installer puts the previous version back.
+
+**"this window runs as ..., but ... is signed in"**
+The PowerShell window was opened with another account (for example an IT administrator account). Open
+PowerShell normally, not with "Run as administrator", and run the command again. No administrator rights
+are needed.
 
 **"No app was set up"**
-The installer looks for the `claude`, `codex` and `opencode` commands. Install the app first, open a new
-PowerShell window so it is on the PATH, and run the installer again. You can also name the apps:
-`-Apps claude,codex,opencode`. See [Manual setup](manual-setup.md) to configure any other app by hand.
+The installer finds Claude Code and OpenCode through their commands (`claude`, `opencode`), and Codex through
+its command or its settings folder. If you installed an app's command-line version, open a new PowerShell
+window and run the installer again. If you use only the Claude desktop app, install the Claude Code command
+too (`irm https://claude.ai/install.ps1 | iex`) or follow [Manual setup](manual-setup.md). The server itself
+is already installed in `%USERPROFILE%\.ppt-a11y\app`.
+
+**"invalid peer certificate" or "UnknownIssuer"**
+Your network inspects secure connections. The installer retries with the Windows certificate store; if it
+still fails, ask IT to allow the sites below without inspection.
 
 **Behind a university proxy or firewall**
-The installer downloads from `github.com`, `astral.sh` (uv), `pypi.org` and `files.pythonhosted.org`, and
-uv downloads Python from `github.com`. Ask IT to allow those, or install offline: download the repository
-ZIP on another computer, copy it over and run `.\install.ps1 -Source C:\path\to\the.zip`.
+The installer needs to reach `raw.githubusercontent.com`, `github.com`, `codeload.github.com`, GitHub's
+download hosts (`objects.githubusercontent.com`, `release-assets.githubusercontent.com`), `astral.sh` (uv),
+`pypi.org` and `files.pythonhosted.org` (uv also downloads Python from GitHub). Ask IT to allow those. If
+only the code download is blocked, download the
+[ZIP](https://github.com/ricardofrodriguezjr/powerpoint-accessibility-mcp/archive/refs/heads/main.zip) another
+way, extract it, and run:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File "C:\path\to\powerpoint-accessibility-mcp-main\install.ps1" -Source "C:\path\to\powerpoint-accessibility-mcp-main"
+```
+
+The installer still needs the other sites to get uv, Python and the Python packages.
 
 ## Connecting
 
@@ -62,6 +83,12 @@ or Windows Terminal tab, not in WSL.
 
 ## While it works
 
+**"not a registered working copy" or "is not open in PowerPoint" for a deck in OneDrive or SharePoint**
+When Office syncs a file through OneDrive or SharePoint, PowerPoint reports it by its web address, which the
+tool cannot match to the file on your disk. Copy the deck to a local folder such as `C:\Slides` and run it
+there. Alternatively, in OneDrive settings turn off **Use Office applications to sync Office files that I
+open**.
+
 **PowerPoint asks questions or shows a dialog**
 Answer or close the dialog; the tool waits for PowerPoint. Leave PowerPoint open and do not work in the
 `_accessible` copy while the app is using it.
@@ -75,10 +102,19 @@ To prove animations still play exactly as before, the app plays slides in Slide 
 screen. It asks first. Leave the computer alone for those few minutes and keep PowerPoint on the main
 monitor.
 
+**"the Accessibility pane did not open" or the PowerPoint checker was skipped**
+The final check reads PowerPoint's Accessibility Checker (the Microsoft 365 Accessibility Assistant) through
+its English interface. With PowerPoint in another language or an older Office, the tool's own audit still
+runs; at the end, run **Review > Check Accessibility** yourself once.
+
 **PowerPoint's Accessibility Checker still says "Check reading order"**
 That item is a prompt to double-check, not an error. It can stay on for a slide whose order is correct
 (for example a code slide where note arrows point into the code). The report lists those slides and why
 their order is right.
+
+**Claude Code asks before every PowerPoint tool**
+Answer **Yes, and don't ask again** the first time each tool is used, or allow them all at once: type
+`/permissions` in a session and add an allow rule for `mcp__ppt-a11y`.
 
 ## Removing it
 
@@ -86,5 +122,8 @@ their order is right.
 irm https://raw.githubusercontent.com/ricardofrodriguezjr/powerpoint-accessibility-mcp/main/uninstall.ps1 | iex
 ```
 
-This removes the server from every app, the skill copies the installer made, and the install folder. Your
-decks and their `_accessible` copies are never touched.
+This removes the server from every app, the skill copies the installer made, and the tool's files in
+`%USERPROFILE%\.ppt-a11y`, including the settings backups in `backups`. To keep that folder (and the
+backups), download `uninstall.ps1` and run `powershell -ExecutionPolicy Bypass -File .\uninstall.ps1 -KeepFiles`.
+uv stays installed; see [uv's uninstall steps](https://docs.astral.sh/uv/getting-started/installation/#uninstallation)
+if you no longer need it. Your decks and their `_accessible` copies are never touched.

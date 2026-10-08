@@ -1,0 +1,49 @@
+name: Something went wrong
+description: Installing, connecting, or making a deck accessible did not work as expected.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. Please check [Troubleshooting](https://github.com/ricardofrodriguezjr/powerpoint-accessibility-mcp/blob/main/docs/troubleshooting.md) first.
+        Do not attach slides or files you cannot share publicly.
+  - type: dropdown
+    id: app
+    attributes:
+      label: Which AI app?
+      options:
+        - Claude Code
+        - Codex
+        - OpenCode
+        - Other
+    validations:
+      required: true
+  - type: dropdown
+    id: stage
+    attributes:
+      label: Where did it go wrong?
+      options:
+        - Installing
+        - Connecting the app to the server
+        - While making a deck accessible
+        - The result (something looks or plays differently)
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you asked for, what you expected, and what happened instead. Paste any error message.
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: Windows version, PowerPoint version (File > Account > About PowerPoint), and your app's version.
+      placeholder: Windows 11 23H2, PowerPoint 2509 (Microsoft 365), Claude Code 2.1
+  - type: textarea
+    id: report
+    attributes:
+      label: Report files (optional)
+      description: If you can share it, attach the audit report from the deck's `_accessible_a11y_checks` folder.

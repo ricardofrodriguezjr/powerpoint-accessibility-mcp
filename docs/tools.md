@@ -22,7 +22,7 @@ with arguments and plan formats, is [`skills/pptx-wcag-alt-text/references/tools
 | `check_grouping(slide, ids)` | Dry run: blockers, effects that will be rebuilt, stacking warnings. Changes nothing. |
 | `group_shapes(slide, ids, alt_text or decorative)` | Groups and keeps every animation. Verified, rolled back on any difference. |
 | `flatten_group(slide, group_id)` | Splits a group animated as a whole (Appear or Fade) so it can join a bigger figure. |
-| `placeholder_to_picture(slide, id)` | Turns a picture held by a placeholder into an identical ordinary picture, so it can be grouped. |
+| `placeholder_to_picture(slide, shape_id)` | Turns a picture held by a placeholder into an identical ordinary picture, so it can be grouped. |
 | `move_to_slides(slide, ids, part)` | Moves informative layout or master content onto the slides that show it (screen readers skip layout content). |
 | `restore_animations_from(slide, source_deck)` | Re-creates a slide's animations from another copy, for example after someone grouped by hand. |
 | `list_animations(slide)` | The animation sequence in order. |
@@ -46,18 +46,21 @@ with arguments and plan formats, is [`skills/pptx-wcag-alt-text/references/tools
 
 | Tool | What it does |
 |---|---|
-| `wcag_audit` | Everything left per category plus PowerPoint's Accessibility Checker; `done: true` when nothing is left. |
+| `wcag_audit` | Everything left per category plus PowerPoint's Accessibility Checker; `done: true` when every check it covers passes; `not_checked` lists what still needs a person. |
 | `run_accessibility_checker(itemize)` | Runs PowerPoint's own Accessibility Assistant and returns counts per category. |
-| `record_change_log` | Writes the change log (one row per change, with before and after values) to a sheet of the results workbook. |
-| `evaluate` | Inspection escape hatch for advanced use: runs Python against an open working copy. It refuses to save, close or open decks. It is not a sandbox. |
+| `record_change_log` | Writes the change log (one row per change, with before and after values): to the spreadsheet results copy, or by default to `<deck>_changes.xlsx` in the deck's checks folder. |
+| `evaluate` | Inspection escape hatch for developers: runs Python against an open working copy. It refuses to save, close or open decks, but it is not a sandbox, so it is off unless the server runs with `PPT_A11Y_ENABLE_EVALUATE=1`. Remediation never needs it. |
 
 ## Command line
 
-Every tool also runs from a terminal, without an AI app:
+Every tool also runs from a terminal, without an AI app. Each command is a separate process, so first open
+the deck with `open_working_copy` (it reuses an existing `_accessible` copy); with one working copy open,
+other tools need no `deck` argument. Write argument files with `-Encoding UTF8`.
 
 ```powershell
-cd $env:USERPROFILE\.ppt-a11y\app
+cd "$env:USERPROFILE\.ppt-a11y\app"
 .venv\Scripts\python.exe cli.py list
-Set-Content args.json '{"deck": "C:\\Slides\\Lecture 05_accessible.pptx"}'
-.venv\Scripts\python.exe cli.py wcag_audit "@args.json"
+Set-Content -Encoding UTF8 args.json '{"source": "C:\\Slides\\Lecture 05.pptx"}'
+.venv\Scripts\python.exe cli.py open_working_copy "@args.json"
+.venv\Scripts\python.exe cli.py wcag_audit
 ```
