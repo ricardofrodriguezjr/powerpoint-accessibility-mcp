@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="330" viewBox="0 0 1280 330" role="img" aria-labelledby="t d">
+  <title id="t">How it works</title>
+  <desc id="d">Four steps: you point your AI app at a PowerPoint deck; the agent skill plans the work; the ppt-a11y MCP server edits a copy through desktop PowerPoint; you get an _accessible copy next to the original plus a change log.</desc>
+  <defs>
+    <linearGradient id="card" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#183A5A"/>
+      <stop offset="1" stop-color="#14334F"/>
+    </linearGradient>
+    <linearGradient id="num" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#5DB2EE"/>
+      <stop offset="1" stop-color="#3B8FD6"/>
+    </linearGradient>
+    <filter id="sh" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="6" stdDeviation="9" flood-color="#000000" flood-opacity="0.35"/>
+    </filter>
+    <marker id="arrow" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#7DBDEB"/>
+    </marker>
+  </defs>
+  <rect width="1280" height="330" rx="26" fill="#0F2438"/>
+  <circle cx="1240" cy="20" r="90" fill="#16385A"/>
+  <circle cx="40" cy="320" r="70" fill="#143252"/>
+
+  <g font-family="Segoe UI, system-ui, -apple-system, Helvetica, Arial, sans-serif">
+    <!-- 1 -->
+    <g transform="translate(36 52)">
+      <rect width="262" height="226" rx="20" fill="url(#card)" stroke="#2A5C86" filter="url(#sh)"/>
+      <circle cx="40" cy="40" r="20" fill="url(#num)"/>
+      <text x="40" y="47" text-anchor="middle" font-size="20" font-weight="700" fill="#FFFFFF">1</text>
+      <text x="24" y="98" font-size="23" font-weight="700" fill="#EEF7FF">Your deck</text>
+      <text x="24" y="130" font-size="17" fill="#AFD3EE">Any .pptx you already</text>
+      <text x="24" y="153" font-size="17" fill="#AFD3EE">teach with. It is never</text>
+      <text x="24" y="176" font-size="17" fill="#AFD3EE">changed.</text>
+      <rect x="24" y="191" width="166" height="22" rx="11" fill="#1F4B72"/>
+      <text x="36" y="207" font-size="14" font-weight="600" fill="#9CD3FA">Lecture 05.pptx</text>
+    </g>
+    <path d="M308 165 L338 165" stroke="#7DBDEB" stroke-width="4" stroke-linecap="round" marker-end="url(#arrow)"/>
+
+    <!-- 2 -->
+    <g transform="translate(348 52)">
+      <rect width="262" height="226" rx="20" fill="url(#card)" stroke="#2A5C86" filter="url(#sh)"/>
+      <circle cx="40" cy="40" r="20" fill="url(#num)"/>
+      <text x="40" y="47" text-anchor="middle" font-size="20" font-weight="700" fill="#FFFFFF">2</text>
+      <text x="24" y="98" font-size="23" font-weight="700" fill="#EEF7FF">Ask your AI app</text>
+      <text x="24" y="130" font-size="17" fill="#AFD3EE">Claude Code, Codex or</text>
+      <text x="24" y="153" font-size="17" fill="#AFD3EE">OpenCode. The skill</text>
+      <text x="24" y="176" font-size="17" fill="#AFD3EE">plans every step.</text>
+      <rect x="24" y="191" width="218" height="22" rx="11" fill="#1F4B72"/>
+      <text x="36" y="207" font-size="14" font-weight="600" fill="#9CD3FA">"Make this deck accessible"</text>
+    </g>
+    <path d="M620 165 L650 165" stroke="#7DBDEB" stroke-width="4" stroke-linecap="round" marker-end="url(#arrow)"/>
+
+    <!-- 3 -->
+    <g transform="translate(660 52)">
+      <rect width="262" height="226" rx="20" fill="url(#card)" stroke="#2A5C86" filter="url(#sh)"/>
+      <circle cx="40" cy="40" r="20" fill="url(#num)"/>
+      <text x="40" y="47" text-anchor="middle" font-size="20" font-weight="700" fill="#FFFFFF">3</text>
+      <text x="24" y="98" font-size="23" font-weight="700" fill="#EEF7FF">Fixed in PowerPoint</text>
+      <text x="24" y="130" font-size="17" fill="#AFD3EE">Alt text, titles, reading</text>
+      <text x="24" y="153" font-size="17" fill="#AFD3EE">order, contrast, tables</text>
+      <text x="24" y="176" font-size="17" fill="#AFD3EE">and links. Each step checked.</text>
+      <rect x="24" y="191" width="186" height="22" rx="11" fill="#1F4B72"/>
+      <text x="36" y="207" font-size="14" font-weight="600" fill="#9CD3FA">undo on any difference</text>
+    </g>
+    <path d="M932 165 L962 165" stroke="#7DBDEB" stroke-width="4" stroke-linecap="round" marker-end="url(#arrow)"/>
+
+    <!-- 4 -->
+    <g transform="translate(972 52)">
+      <rect width="272" height="226" rx="20" fill="url(#card)" stroke="#2A5C86" filter="url(#sh)"/>
+      <circle cx="40" cy="40" r="20" fill="url(#num)"/>
+      <text x="40" y="47" text-anchor="middle" font-size="20" font-weight="700" fill="#FFFFFF">4</text>
+      <text x="24" y="98" font-size="23" font-weight="700" fill="#EEF7FF">Accessible copy</text>
+      <text x="24" y="130" font-size="17" fill="#AFD3EE">Saved next to the original,</text>
+      <text x="24" y="153" font-size="17" fill="#AFD3EE">with a report of every</text>
+      <text x="24" y="176" font-size="17" fill="#AFD3EE">change made.</text>
+      <rect x="24" y="191" width="236" height="22" rx="11" fill="#1F4B72"/>
+      <text x="36" y="207" font-size="14" font-weight="600" fill="#9CD3FA">Lecture 05_accessible.pptx</text>
+    </g>
+  </g>
+</svg>

@@ -1,62 +1,40 @@
 [project]
-name = "powerpoint-mcp"
-version = "0.0.28"
-description = "Open Source Model Context Protocol server for PowerPoint automation on Windows via pywin32"
+name = "powerpoint-accessibility-mcp"
+version = "2.0.0"
+description = "MCP server and agent skill that make PowerPoint decks WCAG 2.1 AA accessible through desktop PowerPoint on Windows, keeping their look and animations."
 readme = "README.md"
 requires-python = ">=3.10"
-license = {text = "MIT"}
-authors = [
-    {name = "Ayushmaniar"}
-]
-keywords = [
-    "mcp",
-    "powerpoint",
-    "automation",
-    "pywin32",
-    "model-context-protocol",
-    "claude"
-]
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Ricardo Rodriguez Jr" }]
+keywords = ["mcp", "powerpoint", "accessibility", "a11y", "wcag", "section-508", "alt-text", "pywin32"]
 classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Education",
     "Operating System :: Microsoft :: Windows",
-    "Topic :: Office/Business",
+    "Programming Language :: Python :: 3",
+    "Topic :: Office/Business :: Office Suites",
 ]
 dependencies = [
-    "mcp>=1.14.0",
+    "mcp>=2.2,<3",
     "pywin32>=311",
-    "Pillow>=10.4.0",
-    "matplotlib>=3.7.0",
-    "numpy>=1.24.0",
-    "python-docx>=1.2.0",
+    "openpyxl>=3.1",
+    "pillow>=10",
+    "pywinauto>=0.6.9",
 ]
 
 [project.scripts]
-powerpoint-mcp = "powerpoint_mcp.server:main"
+ppt-a11y-mcp = "ppta11y.server:main"
+ppt-a11y = "ppta11y.cli:entry"
 
 [project.urls]
-Repository = "https://github.com/Ayushmaniar/powerpoint-mcp"
-Homepage = "https://github.com/Ayushmaniar/powerpoint-mcp"
+Homepage = "https://github.com/ricardofrodriguezjr/powerpoint-accessibility-mcp"
+Issues = "https://github.com/ricardofrodriguezjr/powerpoint-accessibility-mcp/issues"
+Upstream = "https://github.com/Ayushmaniar/powerpoint-mcp"
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling>=1.26"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["powerpoint_mcp"]
-
-[tool.hatch.build.targets.sdist]
-include = [
-    "/powerpoint_mcp",
-    "/pyproject.toml",
-]
-exclude = [
-    "*.pptx",
-    "*.ppt",
-    "*.jpg",
-    "*.png",
-    "*.docx",
-    "*.pdf",
-    ".claude/",
-    "Academic Project/",
-    "test_tools/",
-    "dist/",
-]
+packages = ["ppta11y"]

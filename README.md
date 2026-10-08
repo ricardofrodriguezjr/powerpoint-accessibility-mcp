@@ -1,348 +1,362 @@
-# PowerPoint MCP Server
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/banner-dark.svg">
+    <img alt="PowerPoint Accessibility MCP. Accessible slides from the decks you already have. Same look. Same animations. Every change logged." src="docs/assets/banner-light.svg" width="100%">
+  </picture>
+</p>
 
-The best open-source MCP server for PowerPoint automation. Free, no subscriptions, no credits.
+<p align="center">
+  <b>Make your PowerPoint lectures WCAG 2.1 AA accessible by asking your AI assistant.</b><br>
+  An MCP server and agent skill for Claude Code, Codex and OpenCode on Windows.
+</p>
 
-Built by a UCSD grad student who was tired of spending 3-4 hours per week making presentations.
+<p align="center">
+  <img alt="Platform: Windows 10 or 11" src="https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-BFDDFF?style=flat-square&labelColor=0B3D91">
+  <img alt="Needs desktop PowerPoint" src="https://img.shields.io/badge/needs-PowerPoint%20desktop-BFDDFF?style=flat-square&labelColor=0B3D91">
+  <img alt="WCAG 2.1 AA" src="https://img.shields.io/badge/WCAG-2.1%20AA-BFDDFF?style=flat-square&labelColor=0B3D91">
+  <img alt="MCP server and skill" src="https://img.shields.io/badge/MCP-server%20%2B%20skill-BFDDFF?style=flat-square&labelColor=0B3D91&logo=modelcontextprotocol&logoColor=white">
+  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-BFDDFF?style=flat-square&labelColor=0B3D91"></a>
+</p>
 
-**Languages**
-- [English](#powerpoint-mcp-server)
-- [中文](README.zh-CN.md)
-- [日本語](README.ja.md)
-
-[![PyPI version](https://badge.fury.io/py/powerpoint-mcp.svg)](https://badge.fury.io/py/powerpoint-mcp)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-
----
-
-## Demo Video
-
-[![Watch the PowerPoint MCP Demo](video_thumbnail.jpg)](https://www.youtube.com/watch?v=5p24Vr36py8)
-
-*Watch Claude build a complete "Fourier Transform and Fourier Series" lecture from scratch - equations, diagrams, and animations included.*
-
----
-
-## Windows Only
-
-**This MCP server works exclusively on Windows** because it uses `pywin32` COM automation to control the PowerPoint application directly. This is what enables bidirectional read/write access, real-time editing, LaTeX rendering, templates, and animations.
-
-macOS/Linux alternatives like `python-pptx` don't get access to the full PowerPoint feature set. PRs for an AppleScript-based macOS version are welcome.
-
----
-
-## Why This Is Different
-
-There are a lot of PowerPoint automation tools out there. Here is why this one is actually worth using:
-
-**Template-first design**
-Point the LLM at your desired template and it just works. Tell Claude: *"Make a GPU performance comparison presentation using our company's Nvidia_Black_Green_2025 template"* - it discovers the template, analyzes its layouts, and populates them correctly.
-
-**Actually bidirectional and real-time**
-Unlike `python-pptx` (write-only) or other popular MCP implementations, this uses COM automation. Claude can READ your existing presentations and edit them in real time without closing PowerPoint first.
-
-**Multimodal slide analysis**
-The `slide_snapshot` tool gives the LLM both visual context (screenshots with annotated bounding boxes) AND detailed text/chart/table extraction. Claude can literally see what is on your slides.
-
-**LaTeX rendering that actually works**
-The server renders LaTeX equations by controlling PowerPoint's built-in equation editor directly. Just write `<latex>E=mc^2</latex>` and it appears as a native PowerPoint equation object.
-
-**HTML formatting that saves tokens**
-Bold, italic, colors, and bullet points via HTML tags (`<b>`, `<i>`, `<red>`, `<ul>`, `<ol>`). One formatting pass, no repeated tool calls to apply fonts and colors separately.
-
-**Animations with progressive disclosure**
-Real controllable PowerPoint animations, including paragraph-level entrance effects. Bullet-by-bullet reveals work out of the box - no need to split content across multiple shapes.
-
-**One-line install, no subscriptions**
-```bash
-claude mcp add powerpoint -- uvx powerpoint-mcp
-```
-Works with Claude Code, Cursor, GitHub Copilot, or any MCP client. No third-party services, no monthly fees, no expiring credits.
-
-**11 focused tools, not 30+**
-LLM decision paralysis is real. Every tool has a clear purpose and sensible defaults so Claude spends time building your presentation, not figuring out which tool to call.
+<p align="center">
+  <a href="#quick-start">Quick start</a>
+  &nbsp;·&nbsp;
+  <a href="#example-prompts">Example prompts</a>
+  &nbsp;·&nbsp;
+  <a href="#what-gets-fixed">What gets fixed</a>
+  &nbsp;·&nbsp;
+  <a href="#set-up-by-app">Set up by app</a>
+  &nbsp;·&nbsp;
+  <a href="#faq">FAQ</a>
+</p>
 
 ---
 
-## Real Workflows
+Making a lecture deck accessible by hand takes hours: alt text for every figure, checking what a screen
+reader reads and in which order, fixing slide titles, colours, tables and links, then checking it all
+again. This project lets your AI assistant do that work **inside the PowerPoint you already have**, on a
+copy of your deck, while keeping every slide looking and animating exactly as before.
 
-These are actual workflows tested in production:
+- **Your original is never touched.** The result is saved next to it as `Lecture 05_accessible.pptx`.
+- **Nothing breaks.** Figures keep their animations, slides keep their design. Every invisible change is
+  checked against a render of the slide and undone if anything moved.
+- **Only what WCAG requires changes visibly,** such as a text colour nudged to the nearest passing shade or
+  "(2 of 3)" on a repeated title, and every such change is logged with before and after values.
+- **It checks its own work** with a full WCAG audit plus PowerPoint's built-in Accessibility Checker.
+- **Your words are kept.** If you already wrote alt text in a spreadsheet, it is used exactly as written.
 
-**Research and Create**
-> "Research the latest developments in quantum computing, then create a 15-slide presentation on it"
+## How it works
 
-Claude uses web search to find sources, then builds the deck with citations and formatted content.
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/how-it-works-dark.svg">
+    <img alt="Four steps: your deck; ask your AI app; it is fixed in PowerPoint, each step checked; an accessible copy is saved next to the original with a report." src="docs/assets/how-it-works-light.svg" width="100%">
+  </picture>
+</p>
 
-**Data Analysis and Visualization**
-> "Analyze Titanic_dataset.csv, perform a detailed EDA, and make a presentation explaining the findings"
+The **MCP server** (`ppt-a11y`) gives your AI app 46 precise tools that drive desktop PowerPoint. The
+**skill** (`pptx-wcag-alt-text`) teaches the app the whole process: what to check, in what order, what it
+may change, and when the deck is done. More detail: [How it works](docs/how-it-works.md).
 
-Free-form Python/matplotlib plotting that renders directly into slide placeholders.
+## Requirements
 
-**Codebase Documentation**
-> "Analyze my entire repository and create a technical architecture presentation"
+- Windows 10 or 11
+- Desktop PowerPoint from Microsoft 365 (PowerPoint for the web and for Mac cannot be automated)
+- One AI app that runs on Windows: [Claude Code](https://code.claude.com/docs/en/setup),
+  [Codex](https://github.com/openai/codex) or [OpenCode](https://opencode.ai/docs/)
 
-Claude reads your local files, understands the structure, and generates slides explaining the system.
+You do not need to install Python. The installer brings its own.
 
-**Template-Driven Corporate Decks**
-> "Use the Nvidia_Black_Green_template to create a Q4 sales presentation from nvidia_quarterly_sales_data.csv"
+## Quick start
 
-Template layouts are discovered automatically, placeholders are identified and populated correctly.
+**1. Open PowerShell** (press the Windows key, type `PowerShell`, press Enter) and paste:
 
-**Academic LaTeX Heavy**
-> "Make a 20-slide lecture teaching Fourier Series and Fourier Transforms with equations"
-
-Native PowerPoint equation objects rendered from LaTeX, with animations for progressive disclosure.
-
-**Interactive Learning**
-> "Help me understand this presentation on PAM and BLOSUM matrices from my Computational Biology course, explain each slide and quiz me after each section"
-
-Claude reads your slides (including charts, tables, and speaker notes), explains the content, and creates an interactive quiz.
-
----
-
-## Quick Start
-
-**Step 1: Install**
-```bash
-claude mcp add powerpoint -- uvx powerpoint-mcp
+```powershell
+irm https://raw.githubusercontent.com/ricardofrodriguezjr/powerpoint-accessibility-mcp/main/install.ps1 | iex
 ```
 
-**Step 2: Open PowerPoint**
-Open Microsoft PowerPoint (any presentation, or just the blank start screen).
+**2. Restart your AI app** (or start a new session).
 
-**Step 3: Give Claude a command**
-```
-Make a 10-slide presentation on machine learning fundamentals using my company template.
-Add equations where relevant and animate the bullet points on each slide.
-```
+**3. Ask it to fix a deck:**
 
-That is it. Claude handles the rest.
-
----
-
-## Installation
-
-### Prerequisites
-- Windows 10/11
-- Microsoft PowerPoint installed
-- Python 3.10+
-
-### Claude Code
-```bash
-# Single project
-claude mcp add powerpoint -- uvx powerpoint-mcp
-
-# Available across all projects (install once, use everywhere)
-claude mcp add powerpoint --scope user -- uvx powerpoint-mcp
+```text
+Make "C:\Users\me\Documents\STAT 101\Lecture 05.pptx" WCAG 2.1 AA compliant.
+Save the _accessible copy in the same folder and summarize what you changed.
 ```
 
-### Cursor
-1. Click Settings -> Tools & MCP -> New MCP Server
-2. `~/.cursor/mcp.json` will open
-3. Add the following:
-```json
-{
-  "mcpServers": {
-    "powerpoint": {
-      "command": "uvx",
-      "args": ["powerpoint-mcp"]
-    }
-  }
-}
-```
-4. Restart your IDE after configuration.
+That's it. The installer finds Claude Code, Codex and OpenCode on your computer and sets up each one.
 
-### Trae
-1. Create `.trae/mcp.json` in your project root
-2. Add the following:
-```json
-{
-  "mcpServers": {
-    "powerpoint": {
-      "command": "uvx",
-      "args": ["powerpoint-mcp"]
-    }
-  }
-}
-```
-3. Restart Trae after configuration and use an MCP-enabled agent mode
+<details>
+<summary><b>What the installer does</b></summary>
 
-### Trae CN
-1. Trae CN currently supports the same project-level `.trae/mcp.json` format
-2. Add the following to `.trae/mcp.json` in your project root:
-```json
-{
-  "mcpServers": {
-    "powerpoint": {
-      "command": "uvx",
-      "args": ["powerpoint-mcp"]
-    }
-  }
-}
-```
-3. Restart Trae CN after configuration and use an MCP-enabled agent mode such as Builder with MCP / SOLO Coder if available in your build
+1. Checks that Windows and desktop PowerPoint are present.
+2. Installs [uv](https://docs.astral.sh/uv/) if needed, which provides a private Python.
+3. Downloads this repository to `%USERPROFILE%\.ppt-a11y\app` and installs its Python packages there.
+4. Checks that the server starts and lists its tools.
+5. For each app it finds: registers the server and copies the skill into the app's skills folder. Any
+   settings file it edits is backed up first to `%USERPROFILE%\.ppt-a11y\backups`.
 
-### Codex
-This server is Windows-only, so on Windows PowerShell use:
-```bash
-codex mcp add powerpoint -- cmd /c uvx powerpoint-mcp
+Run the same command again to update. To set up only some apps:
+
+```powershell
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/ricardofrodriguezjr/powerpoint-accessibility-mcp/main/install.ps1))) -Apps claude,codex
 ```
 
-After adding it, restart Codex CLI or run `/mcp` to verify the server is available.
+Prefer to read the script first? Download [`install.ps1`](install.ps1), then run
+`powershell -ExecutionPolicy Bypass -File .\install.ps1`. To remove everything, use
+[`uninstall.ps1`](uninstall.ps1) the same way.
 
-### CodeBuddy
-1. In the sidebar chat panel, click the CodeBuddy Settings button
-2. Open the MCP tab
-3. Click Add MCP
-4. Add the following JSON:
-```json
-{
-  "mcpServers": {
-    "powerpoint": {
-      "type": "stdio",
-      "command": "uvx",
-      "args": ["powerpoint-mcp"],
-      "description": "PowerPoint automation on Windows"
-    }
-  }
-}
+</details>
+
+## Example prompts
+
+Copy one, change the path to your file, and paste it into your app. Any request to make a PowerPoint
+accessible starts the skill.
+
+> **Tip:** hold **Shift**, right-click your file in File Explorer and choose **Copy as path**.
+
+**Make one deck accessible**
+
+```text
+Make "C:\Users\me\Documents\STAT 101\Lecture 05.pptx" WCAG 2.1 AA compliant.
+Save the result as an _accessible copy in the same folder and give me a short
+summary of what you changed.
 ```
-5. Save the configuration, then use Try to Run or invoke it from an agent
 
-### CodeBuddy CN
-1. 在侧栏对话面板右上方点击 CodeBuddy Settings
-2. 切换到 MCP 标签页
-3. 点击 Add MCP
-4. 添加以下 JSON：
-```json
-{
-  "mcpServers": {
-    "powerpoint": {
-      "type": "stdio",
-      "command": "uvx",
-      "args": ["powerpoint-mcp"],
-      "description": "PowerPoint automation on Windows"
-    }
-  }
-}
+**Use alt text you already wrote**
+
+```text
+Make "C:\Users\me\Documents\STAT 101\Lecture 05.pptx" accessible. Use the alt text
+in "C:\Users\me\Documents\STAT 101\Lecture 05 alt text.xlsx" exactly as written.
+Put the _accessible copy in the same folder.
 ```
-5. 保存配置后，可通过 Try to Run 验证，或直接在 Agent 中调用
 
-### OpenCode
-1. Open `~/.config/opencode/opencode.json` for a global setup, or `opencode.json` in your project root for a project-specific setup
-2. Add the following:
+**Do a whole folder**
+
+```text
+Make every PowerPoint in "C:\Users\me\Documents\STAT 101\Slides" accessible, one
+deck at a time. Skip files that already end in _accessible. Save each _accessible
+copy next to its original and give me one summary table at the end.
+```
+
+**Check first, change nothing**
+
+```text
+Check "C:\Users\me\Documents\STAT 101\Lecture 05.pptx" for accessibility problems.
+Do not change anything yet. List what is missing on each slide.
+```
+
+More prompts, and what to expect while it works: [Example prompts](docs/example-prompts.md).
+
+## What gets fixed
+
+| WCAG 2.1 | Problem | What happens | Visible? |
+|---|---|---|---|
+| 1.1.1 | Pictures, charts and diagrams without alt text | Alt text is written (or taken from your spreadsheet); purely decorative objects are marked decorative; multi-piece figures are grouped and keep their animations | No |
+| 2.4.2, 2.4.6 | Slides with no title, or the same title | The visible heading becomes the real title with an identical look; repeated section banners get hidden titles; continued topics become "Topic (2 of 3)" | Only "(n of N)" |
+| 1.3.2, 2.4.3 | Screen readers read objects in the wrong order | Objects are restacked so the title is read first, content in visual order and footers last | No |
+| 1.4.3 | Text that is too light for its background | Contrast is measured against what is really drawn behind the text, and the colour is nudged to the nearest shade that passes | Slightly |
+| 1.3.1 | Tables with merged cells or no header row | Diagram tables become identical-looking text boxes; data tables are unmerged and get a header row | Rarely |
+| 2.4.4 | Raw or broken link text | Replaced with a short description of the destination; the link keeps working | Yes |
+
+When the deck is finished, you get:
+
+- `Lecture 05_accessible.pptx` next to your original;
+- `Lecture 05_accessible_a11y_checks\` with the audit report and a change log listing every change, with
+  before and after values;
+- a summary in the chat, including anything that needs your decision.
+
+## Set up by app
+
+The Quick start configures these automatically. Expand one to check it or set it up by hand; full steps are
+in [Manual setup](docs/manual-setup.md).
+
+<details>
+<summary><b>Claude Code</b></summary>
+
+```powershell
+claude mcp add --scope user ppt-a11y -- "$env:USERPROFILE\.ppt-a11y\app\.venv\Scripts\python.exe" "$env:USERPROFILE\.ppt-a11y\app\server.py"
+Copy-Item -Recurse -Force "$env:USERPROFILE\.ppt-a11y\app\skills\pptx-wcag-alt-text" "$env:USERPROFILE\.claude\skills\"
+```
+
+Check: start a new session and type `/mcp`. Use the skill by name with `/pptx-wcag-alt-text`, or just ask.
+
+</details>
+
+<details>
+<summary><b>Codex</b></summary>
+
+```powershell
+codex mcp add ppt-a11y '--' "$env:USERPROFILE\.ppt-a11y\app\.venv\Scripts\python.exe" "$env:USERPROFILE\.ppt-a11y\app\server.py"
+Copy-Item -Recurse -Force "$env:USERPROFILE\.ppt-a11y\app\skills\pptx-wcag-alt-text" "$env:USERPROFILE\.agents\skills\"
+```
+
+Then open `%USERPROFILE%\.codex\config.toml`. Add these lines under the `[mcp_servers.ppt-a11y]` line the
+command created, so long checks are not cut off and Codex does not ask before each tool call:
+
+```toml
+startup_timeout_sec = 60
+tool_timeout_sec = 1800
+default_tools_approval_mode = "approve"
+```
+
+And add this line at the very top of the file, so the tools are ready for your first message:
+
+```toml
+mcp_optional_startup_grace_ms = 5000
+```
+
+Check: restart Codex and type `/mcp`. Use the skill by name with `$pptx-wcag-alt-text`, or just ask. Keep the
+agent on **Windows native**, not WSL.
+
+</details>
+
+<details>
+<summary><b>OpenCode</b></summary>
+
+Add this to `%USERPROFILE%\.config\opencode\opencode.json` (or to `opencode.jsonc` in the same folder if that
+is the file you have; OpenCode reads both):
+
 ```json
 {
   "$schema": "https://opencode.ai/config.json",
   "mcp": {
-    "powerpoint": {
+    "ppt-a11y": {
       "type": "local",
-      "command": ["uvx", "powerpoint-mcp"]
+      "command": [
+        "C:\\Users\\YOUR-NAME\\.ppt-a11y\\app\\.venv\\Scripts\\python.exe",
+        "C:\\Users\\YOUR-NAME\\.ppt-a11y\\app\\server.py"
+      ],
+      "enabled": true,
+      "timeout": 1800000
     }
   }
 }
 ```
-3. Restart OpenCode after configuration.
 
-### VS Code (GitHub Copilot)
-1. Open `C:\Users\Your_User_Name\AppData\Roaming\Code\User\mcp.json`
-2. Add the following:
-```json
-{
-  "mcpServers": {
-    "powerpoint": {
-      "command": "uvx",
-      "args": ["powerpoint-mcp"]
-    }
-  }
-}
-```
-3. Restart your IDE after configuration.
+OpenCode also reads skills from `%USERPROFILE%\.claude\skills` and `%USERPROFILE%\.agents\skills`, so the
+skill is picked up from there. Check: restart OpenCode and run `opencode mcp list`. Run OpenCode directly in
+Windows (PowerShell or Windows Terminal), not inside WSL.
 
-### Google Antigravity
-1. Open an Agent session in Antigravity
-2. Click the **"..."** (dot menu) at the top of the editor's side panel
-3. Select **MCP Servers** → **Manage MCP Servers** → **View raw config**
-   - This opens `mcp_config.json` directly. You can also edit it manually at:
-     - Windows: `C:\Users\<USERNAME>\.gemini\antigravity\mcp_config.json`
-     - macOS / Linux: `~/.gemini/antigravity/mcp_config.json`
-4. Add the following:
-```json
-{
-  "mcpServers": {
-    "powerpoint": {
-      "command": "uvx",
-      "args": ["powerpoint-mcp"]
-    }
-  }
-}
-```
-5. Return to **Manage MCP Servers** and click **Refresh** to activate the server.
+</details>
 
----
+<details>
+<summary><b>Other MCP apps</b></summary>
 
-## Tool Reference
+Any app that supports local (stdio) MCP servers can run
+`%USERPROFILE%\.ppt-a11y\app\.venv\Scripts\python.exe %USERPROFILE%\.ppt-a11y\app\server.py`.
+See [Manual setup](docs/manual-setup.md#2-connect-your-app).
 
-All 11 tools, each with a single clear responsibility:
+</details>
 
-| Tool | What It Does |
-|------|-------------|
-| `manage_presentation` | Open, close, create, or save presentations. The entry point for any workflow. |
-| `slide_snapshot` | Comprehensive slide analysis: screenshot with annotated bounding boxes, text extraction, chart data, table parsing, hyperlinks, comments, and speaker notes. |
-| `switch_slide` | Navigate to a specific slide number in the active presentation. |
-| `add_speaker_notes` | Add or replace speaker notes on any slide using the official COM approach. |
-| `populate_placeholder` | Fill any placeholder with text (HTML formatting), LaTeX equations, or matplotlib plots. |
-| `manage_slide` | Duplicate, delete, or move slides within the presentation. |
-| `list_templates` | Discover all available PowerPoint templates from Personal, User, and System template directories. |
-| `analyze_template` | Analyze a template's layouts with placeholder positions and screenshots. |
-| `add_slide_with_layout` | Add a new slide using a specific layout from a template, preserving all template styling. |
-| `add_animation` | Add entrance animations (fade, appear, fly, wipe, zoom) to shapes with optional paragraph-level progressive disclosure. |
-| `powerpoint_evaluate` | Execute arbitrary Python code in the PowerPoint context for complex batch operations. |
+## Tested on real lectures
 
----
+Two university lecture decks that had already been given alt text were run through the full process.
 
-## Content Formatting Reference
+| | 45-slide statistics lecture | 15-slide Python lecture |
+|---|---|---|
+| Slides without a title | 9 to 0 | 0 |
+| Slides sharing a title | 6 to 0 | 0 |
+| Tables with merged cells | 2 to 0 | 0 |
+| Text below the contrast minimum | 18 to 0 | 0 |
+| Unclear links | 0 | 1 to 0 |
+| Slides read in the wrong order | 37 to 0 | 5 to 0 |
+| PowerPoint "Check reading order" prompts | 25 to 3 | 4 to 0 |
 
-The `populate_placeholder` tool accepts HTML-style tags for rich formatting:
+The statistics deck was a Google Slides export with 13 animated slides, including diagrams of up to 87
+effects. After every step, each changed slide was compared with the original by render and its saved
+animation data was checked; after the alt-text pass, the 13 animated slides were also played in Slide
+Show and compared click by click. Only the logged changes differ. The 3 remaining prompts are code slides whose notes point into the code; their
+reading order was checked and is correct (see the [FAQ](#faq)).
 
-```
-<b>bold text</b>
-<i>italic text</i>
-<u>underlined text</u>
-<red>colored text</red>  (also: blue, green, orange, purple, white, black)
-<ul><li>unordered list item</li></ul>
-<ol><li>ordered list item</li></ol>
-<latex>E = mc^2</latex>
-```
+## FAQ
 
-For matplotlib plots, pass your plotting code directly as the content with `content_type="plot"` - the server executes it and inserts the resulting image.
+<details>
+<summary><b>Will it change how my slides look?</b></summary>
 
----
+Only where WCAG requires it, and every such change is listed with before and after values: a text or
+fill colour nudged to the nearest shade that passes contrast, "(2 of 3)" added to repeated titles,
+descriptive link text, and repeated text in unmerged table cells. Everything else (alt text, titles that
+look identical, reading order, grouping) is invisible and is verified to be invisible.
 
-## How It Works
+</details>
 
-PowerPoint MCP uses Windows COM automation (`pywin32`) to control Microsoft PowerPoint directly, the same mechanism used by VBA macros and Office add-ins. This gives it full access to every PowerPoint feature: the equation editor, animation engine, template system, and real-time slide reading.
+<details>
+<summary><b>Does it keep my animations?</b></summary>
 
-The server is built on [FastMCP](https://github.com/jlowin/fastmcp) and published on [PyPI](https://pypi.org/project/powerpoint-mcp/) for easy installation via `uvx`.
+Yes. PowerPoint normally deletes animations when shapes are grouped; this tool re-creates them on the same
+shapes inside the group and verifies the saved animation data is identical. It can also play the original
+and the copy side by side in Slide Show and compare every click.
 
-Screenshots are saved automatically to `~/.powerpoint-mcp/` with timestamp-based filenames.
+</details>
 
----
+<details>
+<summary><b>Does it send my slides anywhere?</b></summary>
 
-## Limitations
+The server runs entirely on your computer and talks only to PowerPoint and your AI app. Your AI app sends
+what it reads (slide text, alt text, slide images when it looks at a slide) to its AI provider, as with any
+file you open in that app. Use the app your institution approves for course materials. See
+[Security and privacy](SECURITY.md).
 
-- **Windows only**: COM automation is a Windows technology. No macOS or Linux support currently.
-- **PowerPoint required**: Microsoft PowerPoint must be installed. LibreOffice is not supported.
-- **Python 3.10+**: Required for the server runtime.
+</details>
 
----
+<details>
+<summary><b>Does it work on a Mac, or with Google Slides?</b></summary>
 
-## Star History
+It needs Windows and desktop PowerPoint, because it drives PowerPoint itself. For Google Slides, download
+the deck as .pptx, make it accessible, and upload the `_accessible` copy.
 
-[![Star History Chart](https://api.star-history.com/svg?repos=ayushmaniar/powerpoint-mcp&type=date&legend=top-left)](https://www.star-history.com/#ayushmaniar/powerpoint-mcp&type=date&legend=top-left)
+</details>
 
----
+<details>
+<summary><b>How long does it take?</b></summary>
 
-Fully open source (MIT License). If this saves you time, a star on GitHub goes a long way.
+Usually 10 to 30 minutes for a 40-slide lecture with diagrams and animations. You can stop at any time: the
+work is saved after every verified step, and you can ask the app to continue later.
 
-**GitHub:** https://github.com/Ayushmaniar/powerpoint-mcp
+</details>
+
+<details>
+<summary><b>PowerPoint's checker still says "Check reading order". Is something wrong?</b></summary>
+
+That item is a prompt to double-check, not an error, and PowerPoint's rule for it is a guess based on
+position. It can stay on for slides whose order is correct, for example a code slide where note arrows
+point into the code. The report lists those slides and explains why their order is right.
+
+</details>
+
+<details>
+<summary><b>Something went wrong. Where do I get help?</b></summary>
+
+See [Troubleshooting](docs/troubleshooting.md), or open an
+[issue](https://github.com/ricardofrodriguezjr/powerpoint-accessibility-mcp/issues).
+
+</details>
+
+## Documentation
+
+| Page | For |
+|---|---|
+| [Example prompts](docs/example-prompts.md) | Ready-to-paste requests and what to expect |
+| [Manual setup](docs/manual-setup.md) | Setting up by hand, or in another MCP app |
+| [Troubleshooting](docs/troubleshooting.md) | Install and connection problems |
+| [How it works](docs/how-it-works.md) | Safety rules, the animation fix, reading order and contrast in detail |
+| [Tool reference](docs/tools.md) | The 46 MCP tools |
+| [Skills](skills/README.md) | What the skill does and how to write your own |
+| [Tests](tests/README.md) | How the tool's claims are verified |
+
+## Contributing
+
+Bug reports, test decks you can share, and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Credits
+
+Forked from [powerpoint-mcp](https://github.com/Ayushmaniar/powerpoint-mcp) by Ayushmaniar (MIT, as declared
+in its README and `pyproject.toml`), which showed how an MCP server can drive desktop PowerPoint through
+pywin32. Built with the
+[MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk), [pywin32](https://github.com/mhammond/pywin32)
+and [uv](https://github.com/astral-sh/uv).
+
+## License
+
+[MIT](LICENSE)
